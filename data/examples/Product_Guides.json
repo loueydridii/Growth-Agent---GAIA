@@ -1,0 +1,63 @@
+{
+  "products": {
+    "cloudpulse_saas": {
+      "display_name": "CloudPulse",
+      "core_technology": "Plantar pressure eBPF telemetrys combined with real-time musculoskeletal Digital Twin modeling.",
+      "reimbursement_codes_2026": {
+        "dev_tier": {
+          "rate": 21.71,
+          "description": "Remote patient monitoring setup and device provisioning (billed once)."
+        },
+        "growth_tier": {
+          "rate": 47.06,
+          "description": "Remote patient monitoring transmission of data, minimum 16 days of data per month."
+        },
+        "starter_tier": {
+          "rate": 47.06,
+          "description": "Remote monitoring transmission of data, 2-15 days of data per month."
+        },
+        "enterprise_tier": {
+          "rate": 52.00,
+          "description": "Remote patient monitoring clinical management, minimum 20 minutes of review per month."
+        },
+        "pro_tier": {
+          "rate": 26.00,
+          "description": "Remote patient monitoring clinical management, first 10 minutes of review per month."
+        }
+      },
+      "value_proposition": "Clinicians earn CPT-billable remote patient monitoring revenue while showing patients real-time gait progression data to increase clinical retention.",
+      "pitch_anchor": "16 patients × $99/mo = ~$1,584 MRR per clinician at near-zero marginal cost."
+    },
+    "synthetix_ai": {
+      "display_name": "Synthetix AI",
+      "core_technology": "Markerless biomechanics and injury risk prediction via standard 2D video feeds (computer vision AI).",
+      "metric_capabilities": {
+        "skeletal_landmarks": 33,
+        "parameters_measured": ["joint angles", "left-vs-right asymmetries", "fatigue signatures", "load distributions"],
+        "rate": "60+ frames per second"
+      },
+      "value_proposition": "Elite teams track injury risk indicators on every athlete and rep without wearables or compliance friction, using only the existing training ground cameras.",
+      "pitch_anchor": "Synthetix Trajectory Tracer biomechanical monitoring caught the warning pattern in slow motion before the tissue broke."
+    },
+    "aura_commerce": {
+      "display_name": "Aura Commerce",
+      "core_technology": "HIPAA-ready healthcare AI MVP development (FastAPI + PostgreSQL + Vue 3 + Gemini/Claude skeletons).",
+      "productized_offers": {
+        "60_Day_AI_MVP": {
+          "price": 35000.00,
+          "timeline_weeks": 8,
+          "included": [
+            "Discovery + Architecture Sprint",
+            "FastAPI backend + Vue 3 admin skeletal build",
+            "Gemini/Claude API integrations",
+            "HIPAA compliance architecture (encryption, audit logging, RBAC)",
+            "Docker deployment & CI/CD pipeline",
+            "2-week post-launch warranty"
+          ]
+        }
+      },
+      "value_proposition": "Founded startups ship production-ready, HIPAA-compliant AI MVPs in 60 days for a fixed price, skipping hiring loops and architecture mistakes.",
+      "pitch_anchor": "We built our own products (CP-OPS-01 proof). Get a production-ready MVP shipped in 60 days for $35K fixed."
+    }
+  }
+}

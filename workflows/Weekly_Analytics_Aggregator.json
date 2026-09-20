@@ -1,0 +1,269 @@
+{
+  "name": "GrowthAgent \u2014 Weekly Analytics Aggregator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-sunday",
+      "name": "Every Sunday 11pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ],
+      "notes": "Triggers at the end of the week to aggregate and store telemetry."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/rpc/get_weekly_geo_score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"p_product\": \"all\"}",
+        "options": {}
+      },
+      "id": "node-fetch-geo-score",
+      "name": "Fetch Weekly GEO Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mock-period",
+              "name": "tracking_period",
+              "value": "={{ $now.toFormat('yyyy-WW') }}",
+              "type": "string"
+            },
+            {
+              "id": "mock-impressions",
+              "name": "content_impressions",
+              "value": 15200,
+              "type": "number"
+            },
+            {
+              "id": "mock-engagement",
+              "name": "content_engagement_rate",
+              "value": 4.25,
+              "type": "number"
+            },
+            {
+              "id": "mock-dms",
+              "name": "content_inbound_dms",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "mock-emails",
+              "name": "outbound_emails_sent",
+              "value": 2500,
+              "type": "number"
+            },
+            {
+              "id": "mock-open",
+              "name": "outbound_open_rate",
+              "value": 42.5,
+              "type": "number"
+            },
+            {
+              "id": "mock-reply",
+              "name": "outbound_reply_rate",
+              "value": 3.1,
+              "type": "number"
+            },
+            {
+              "id": "mock-calls",
+              "name": "outbound_diagnostic_calls_booked",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "mock-mqls",
+              "name": "pipeline_mqls",
+              "value": 45,
+              "type": "number"
+            },
+            {
+              "id": "mock-sqls",
+              "name": "pipeline_sqls",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "mock-pilots",
+              "name": "pipeline_pilots_signed",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "mock-arr",
+              "name": "pipeline_attributed_arr",
+              "value": 25000,
+              "type": "number"
+            },
+            {
+              "id": "mock-geo-us",
+              "name": "geo_citation_score",
+              "value": "={{ $json }}",
+              "type": "number"
+            },
+            {
+              "id": "mock-geo-them",
+              "name": "geo_competitor_citation_score",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-aggregate-data",
+      "name": "Aggregate Telemetry",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        500,
+        300
+      ],
+      "notes": "In production, this node fetches from LinkedIn API, Smartlead API, and CRM CRM. GEO Score is fetched live from Supabase."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/rpc/upsert_weekly_analytics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_tracking_period\": \"{{ $json.tracking_period }}\",\n  \"p_content_impressions\": {{ $json.content_impressions }},\n  \"p_content_engagement_rate\": {{ $json.content_engagement_rate }},\n  \"p_content_inbound_dms\": {{ $json.content_inbound_dms }},\n  \"p_outbound_emails_sent\": {{ $json.outbound_emails_sent }},\n  \"p_outbound_open_rate\": {{ $json.outbound_open_rate }},\n  \"p_outbound_reply_rate\": {{ $json.outbound_reply_rate }},\n  \"p_outbound_diagnostic_calls_booked\": {{ $json.outbound_diagnostic_calls_booked }},\n  \"p_pipeline_mqls\": {{ $json.pipeline_mqls }},\n  \"p_pipeline_sqls\": {{ $json.pipeline_sqls }},\n  \"p_pipeline_pilots_signed\": {{ $json.pipeline_pilots_signed }},\n  \"p_pipeline_attributed_arr\": {{ $json.pipeline_attributed_arr }},\n  \"p_geo_citation_score\": {{ $json.geo_citation_score }},\n  \"p_geo_competitor_citation_score\": {{ $json.geo_competitor_citation_score }}\n}",
+        "options": {}
+      },
+      "id": "node-supabase-upsert",
+      "name": "Supabase: Store Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83d\udcca **Weekly Growth Telemetry Saved!**\n\nPeriod: `{{ $('Aggregate Telemetry').item.json.tracking_period }}`\nImpressions: `{{ $('Aggregate Telemetry').item.json.content_impressions }}`\nLive GEO Citation Score: `{{ $('Aggregate Telemetry').item.json.geo_citation_score }}%`\nDiagnostic Calls: `{{ $('Aggregate Telemetry').item.json.outbound_diagnostic_calls_booked }}`\nPilots Signed: `{{ $('Aggregate Telemetry').item.json.pipeline_pilots_signed }}`\n\nThe dashboard has been updated in Supabase.",
+        "options": {}
+      },
+      "id": "node-discord-alert",
+      "name": "Discord: Weekly Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Sunday 11pm": {
+      "main": [
+        [
+          {
+            "node": "Fetch Weekly GEO Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Weekly GEO Score": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Telemetry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Store Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Store Analytics": {
+      "main": [
+        [
+          {
+            "node": "Discord: Weekly Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

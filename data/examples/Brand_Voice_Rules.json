@@ -1,0 +1,37 @@
+{
+  "brand_voice": {
+    "tone_anchors": {
+      "cloudpulse_saas": "Clinical, math-focused, return-on-investment driven, operational.",
+      "synthetix_ai": "Cinematic, precise, scientific, human, serious.",
+      "aura_commerce": "Engineering-first, proof-led, fixed, direct."
+    },
+    "lexicon_rules": {
+      "forbidden_words": [
+        "disruptive",
+        "revolutionary",
+        "synergy",
+        "leading-edge",
+        "next-generation",
+        "we prevent injuries"
+      ],
+      "approved_substitutes": {
+        "revolutionary": "experimentally validated",
+        "we prevent injuries": "we detect mechanical risk precursors",
+        "next-generation": "2026 CMS-compliant"
+      }
+    },
+    "formatting_rules": {
+      "general": "No emojis in brand statements, short paragraphs, single-sentence hooks.",
+      "outreach_email": {
+        "max_words": 130,
+        "signature_type": "3-line plain text (no links)",
+        "calendar_link_in_first_email": false
+      },
+      "linkedin_posts": {
+        "max_words": 150,
+        "first_line": "Visceral hook, maximum scroll-stopping probability",
+        "links_location": "first comment only (never in body)"
+      }
+    }
+  }
+}

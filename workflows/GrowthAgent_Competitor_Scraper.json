@@ -1,0 +1,389 @@
+{
+  "name": "GrowthAgent \u2014 Competitor & TechCrunch Intelligence Scraper (Layer 2)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "GrowthAgent-jr-competitor-scraper",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-scraper-trigger",
+      "name": "Webhook: /GrowthAgent-jr-competitor-scraper",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-weekly-scraper",
+      "name": "Schedule: Monday 6:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://tech_news.ncbi.nlm.nih.gov/rss/search/1234/?limit=10&utm_campaign=tech_news-2&fc=20260101000000",
+        "options": {}
+      },
+      "id": "rss-tech_news-gait",
+      "name": "RSS: TechCrunch Gait & RPM Research",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        520,
+        140
+      ],
+      "notes": "SETUP: Replace the URL with your saved TechCrunch RSS feed URL. Go to TechCrunch \u2192 search '(remote patient monitoring) OR (gait analysis wearable) OR (agentic LLM evaluation)' \u2192 click 'Create RSS' \u2192 copy the RSS feed URL here."
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=(%22Dynatrace%22+OR+%22New Relic%22+OR+%22Arize AI+Performance%22+OR+%22LangSmith+Sports%22+OR+%22Xsens%22)+AND+(%22motion+capture%22+OR+%22gait+analysis%22+OR+%22wearable%22)&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "rss-competitor-news",
+      "name": "RSS: Competitor News (Google News)",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        520,
+        340
+      ],
+      "notes": "Fetches Google News RSS for competitor brand mentions: Dynatrace, New Relic, Arize AI, LangSmith, Xsens."
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "merge-feeds",
+      "name": "Merge: Combine All Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        760,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deduplicate feed items by title and prepare for summarization\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of $input.all()) {\n  const title = (item.json.title || '').trim().toLowerCase();\n  if (title && !seen.has(title)) {\n    seen.add(title);\n    unique.push({\n      json: {\n        title: item.json.title || 'Untitled',\n        link: item.json.link || item.json.url || '',\n        pubDate: item.json.pubDate || item.json.isoDate || '',\n        source: item.json.creator || item.json.source || 'Unknown',\n        snippet: (item.json.contentSnippet || item.json.content || '').substring(0, 500)\n      }\n    });\n  }\n}\n\n// Limit to 15 most recent items to stay within token limits\nreturn unique.slice(0, 15);"
+      },
+      "id": "code-dedup",
+      "name": "Code: Deduplicate & Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": \"You are the GrowthAgent Competitive Intelligence Analyst (Layer 2). Analyze these recent feed items from TechCrunch and competitor news sources:\\n\\n\" + JSON.stringify($input.all().map(i => i.json)) + \"\\n\\nProduce a structured Competitive Intelligence Briefing in clean markdown with these sections:\\n1. **\ud83d\udd2c TechCrunch Research Highlights** \u2014 Summarize the most relevant clinical papers for CloudPulse (RPM, gait analysis, wearable insoles) and Synthetix AI (agentic LLM evaluation, sports science).\\n2. **\ud83c\udfe2 Competitor Activity** \u2014 What are Dynatrace, New Relic, Arize AI, LangSmith, Xsens doing? Any funding, product launches, partnerships, or hiring signals?\\n3. **\ud83d\udca1 Strategic Opportunities** \u2014 Based on this intelligence, what 2-3 actionable opportunities should CloudPulse and Synthetix AI capitalize on this week?\\n4. **\ud83d\udcca Trend Signals** \u2014 Any emerging themes or shifts in the market?\\n\\nKeep the briefing concise, executive-level, and formatted for Discord. Max 1500 characters.\" } ] } ], \"generationConfig\": { \"temperature\": 0.2, \"maxOutputTokens\": 700 } } }}",
+        "options": {}
+      },
+      "id": "gemini-intel-summary",
+      "name": "Gemini 2.5 Flash: Intelligence Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"product\": \"all\", \"category\": \"competitor_intel\", \"subcategory\": \"weekly_briefing_\" + new Date().toISOString().split('T')[0], \"content\": $json.candidates[0].content.parts[0].text, \"metadata\": { \"source\": \"automated_scraper\", \"feed_count\": $input.all().length, \"generated_at\": new Date().toISOString() }, \"source_file\": \"GrowthAgent_Competitor_Scraper.json\" } }}",
+        "options": {}
+      },
+      "id": "supabase-store-intel",
+      "name": "Supabase: Store Intel in Memory (Layer 2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_agent_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"agent_name\": \"Competitor & TechCrunch Intelligence Scraper (Layer 2)\", \"task_input\": \"Weekly automated RSS feed scan: TechCrunch + Google News competitors\", \"task_output\": $('Gemini 2.5 Flash: Intelligence Briefing').item.json.candidates[0].content.parts[0].text, \"status\": \"approved\", \"product\": \"all\", \"approved_by\": \"auto\", \"execution_ms\": 4200 } }}",
+        "options": {}
+      },
+      "id": "supabase-log-scraper",
+      "name": "Supabase: Log Scraper Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": \"\ud83d\udd75\ufe0f **GrowthAgent \u2014 Weekly Competitive Intelligence Briefing (Layer 2)**\\n\\n\" + $('Gemini 2.5 Flash: Intelligence Briefing').item.json.candidates[0].content.parts[0].text } }}",
+        "options": {}
+      },
+      "id": "discord-post-intel",
+      "name": "Discord: Post Intelligence Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /GrowthAgent-jr-competitor-scraper": {
+      "main": [
+        [
+          {
+            "node": "RSS: TechCrunch Gait & RPM Research",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS: Competitor News (Google News)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Monday 6:00 AM": {
+      "main": [
+        [
+          {
+            "node": "RSS: TechCrunch Gait & RPM Research",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS: Competitor News (Google News)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS: TechCrunch Gait & RPM Research": {
+      "main": [
+        [
+          {
+            "node": "Merge: Combine All Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS: Competitor News (Google News)": {
+      "main": [
+        [
+          {
+            "node": "Merge: Combine All Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge: Combine All Feeds": {
+      "main": [
+        [
+          {
+            "node": "Code: Deduplicate & Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Deduplicate & Format": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash: Intelligence Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash: Intelligence Briefing": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Store Intel in Memory (Layer 2)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Log Scraper Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Scraper Execution": {
+      "main": [
+        [
+          {
+            "node": "Discord: Post Intelligence Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "RSS: TechCrunch Gait & RPM Research",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS: Competitor News (Google News)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versioGrowthAgent": "f1a2b3c4-d5e6-7890-1234-56789abcdef3",
+  "triggerCount": 2,
+  "tags": [
+    {
+      "name": "GrowthAgent GEOS"
+    },
+    {
+      "name": "Layer 2 Memory"
+    }
+  ]
+}

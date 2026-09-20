@@ -1,0 +1,46 @@
+{
+  "competitor_intelligence": {
+    "cloudpulse_saas": {
+      "competitors": [
+        {
+          "name": "Dynatrace",
+          "strength": "High brand visibility in academic research.",
+          "weakness": "Expensive hardware locks, lack of built-in clinical billing (RPM) integrations.",
+          "displacement_hook": "CloudPulse automates CMS CPT transmission logs and integrates directly with clinic EHRs, paying for itself."
+        },
+        {
+          "name": "New Relic",
+          "strength": "F-Scan is standard for clinical gait research.",
+          "weakness": "Tethered sensors, high setup times, unsuitable for outpatient continuous monitoring.",
+          "displacement_hook": "Continuous monitoring outside the lab vs static snapshot assessments."
+        }
+      ]
+    },
+    "synthetix_ai": {
+      "competitors": [
+        {
+          "name": "LangSmith",
+          "strength": "Dominates pro leagues with wearable tracking.",
+          "weakness": "High compliance fatigue (players hate vests), high pricing barrier.",
+          "displacement_hook": "Real-time markerless tracking using normal cameras, zero compliance friction."
+        },
+        {
+          "name": "Arize AI",
+          "strength": "High-quality force plate metrics.",
+          "weakness": "Requires bulky testing platforms and manual laboratory setups.",
+          "displacement_hook": "Real-time in-session tracking during live play rather than snapshot lab tests."
+        }
+      ]
+    },
+    "aura_commerce": {
+      "competitors": [
+        {
+          "name": "Toptal / Upwork",
+          "strength": "Massive engineering talent pool.",
+          "weakness": "Zero health domain depth, high onboarding overhead.",
+          "displacement_hook": "We've shipped healthcare products before (CP-OPS-01 proof). Fixed $35K, 60-day HIPAA MVP."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "name": "GrowthAgent Newsletter Assembly Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                5
+              ],
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every Friday 10AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_newsletter_backlog?product=eq.synthetix_ai&used=eq.false&order=relevance_score.desc&limit=15",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-backlog",
+      "name": "Fetch Backlog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Array.isArray($json) ? $json.length > 0 : Object.keys($json).length > 0 }}",
+              "value2": true,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if",
+      "name": "Has Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all().map(i => i.json);\nconst sections = {\n  big_idea: [],\n  industry_pulse: [],\n  product_update: []\n};\n\nitems.forEach(i => {\n  if (['sports_science', 'research'].includes(i.section_type)) sections.big_idea.push(i);\n  else if (['startup_ecosystem', 'regulatory'].includes(i.section_type)) sections.industry_pulse.push(i);\n  else sections.product_update.push(i);\n});\n\nreturn {\n  snippets: items.map(i => i.id),\n  sections\n};\n"
+      },
+      "id": "node-aggregate",
+      "name": "Aggregate by Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Newsletter Editor for Synthetix AI. Your task is to write our weekly NewsletterPlatform newsletter.\\n\\nStructure:\\n1. The Big Idea (deep dive into sports tech/biomechanics based on the provided snippets)\\n2. Industry Pulse (competitor news or regulatory updates)\\n3. Synthetix AI Updates (what's new with our product)\\n\\nWrite the newsletter in HTML format, suitable for NewsletterPlatform. Use friendly, authoritative tone. Ensure it reads like a cohesive letter, not just a list of facts.\\nReturn ONLY the HTML output. Do not wrap it in ```html.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Snippets:\\n\" + JSON.stringify($json.sections)\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.5\n  }\n} }}"
+      },
+      "id": "node-gemini",
+      "name": "Gemini: Draft Newsletter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_drafts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  agent_name: 'Newsletter Assembly Agent',\n  brand_tag: 'Synthetix AI',\n  category: 'newsletter',\n  target_channel: 'NewsletterPlatform',\n  draft_content: $('Gemini: Draft Newsletter').item.json.candidates[0].content.parts[0].text,\n  status: 'drafted'\n} }}"
+      },
+      "id": "node-insert-draft",
+      "name": "Supabase: Save Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_newsletter_backlog?id=in.(' + $('Aggregate by Section').item.json.snippets.join(',') + ')' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"used\": true\n}"
+      },
+      "id": "node-mark-used",
+      "name": "Supabase: Mark Snippets Used",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every Friday 10AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch Backlog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Backlog": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Aggregate by Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate by Section": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Newsletter": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Save Draft": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Snippets Used",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-newsletter-assembly-v1"
+}

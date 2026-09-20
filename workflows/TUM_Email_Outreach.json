@@ -1,0 +1,679 @@
+{
+  "name": "B2B Executive Outreach (Enterprise V3 - Supabase + Apollo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Untitled spreadsheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1976250630,
+          "mode": "list",
+          "cachedResultName": "Target_Prospects",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1976250630"
+        },
+        "options": {}
+      },
+      "id": "node-read-targets",
+      "name": "Read Targets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2144,
+        1888
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7X7zyxKjao8kw6T7",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Drafted",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "cond-2",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Sent",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "cond-3",
+              "leftValue": "={{ $json.Email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-filter",
+      "name": "Validate & Filter",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-loop-batch",
+      "name": "Loop (Batch 1)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2560,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-Synthetix AI-check",
+              "leftValue": "={{ $json.Product || $json.Brand || '' }}",
+              "rightValue": "Synthetix AI",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-product-router",
+      "name": "Product Router (Synthetix AI vs CloudPulse)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2780,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "node-wait-estep",
+      "name": "Wait RateLimit (CloudPulse)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2980,
+        1800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"CONTEXT FROM MEMORY:\\n{{ $('Validate & Filter').item.json.map ? $('Validate & Filter').item.json.map(item => item.content).join('\\\\n') : '' }}\\n\\nYou are Your Name, Growth Engineering at CloudPulse. You are writing a personalised cold outreach email to a physical therapy clinic director or academic researcher.\\n\\nLANGUAGE RULES \u2014 you must select the email language based on the target's country:\\n- United States, Canada, Australia, United Kingdom, Ireland, South Africa, Nigeria, Kenya, Ghana, Ethiopia, Tanzania, Uganda, Rwanda, Senegal, Ivory Coast, or any other African country \u2192 write in English\\n- France, Belgium, Luxembourg, Morocco, Tunisia, Algeria, Cameroon, Madagascar \u2192 write in French (formal 'vous')\\n- Germany, Austria, Switzerland \u2192 write in German (formal Sie-Form)\\n- Spain \u2192 write in Spanish (formal usted)\\n- Italy \u2192 write in Italian (formal Lei)\\n- Netherlands, Belgium (Dutch-speaking) \u2192 write in Dutch (formal u)\\n- Portugal, Brazil \u2192 write in Portuguese (formal o senhor / a senhora)\\n- All other countries or unknown \u2192 write in English\\n\\nRules:\\n1. Use the language selected above. Never mix languages.\\n2. Keep under 120 words. No filler words. No hype.\\n3. Reference their clinic name or paper explicitly to show you did your research.\\n4. Core Pitch: CloudPulse eBPF telemetrys enable continuous remote gait monitoring that improves patient compliance and unlocks RPM reimbursement revenue (mention Growth Tier and Enterprise Tier for US targets only; for other markets reference local RPM billing or remote patient monitoring programme revenue instead).\\n5. Offer: 90-day free pilot access or research collaboration.\\n6. CTA: Invite them to a brief 10-minute Zoom call next week.\\n7. Sign off appropriately in the chosen language. Always include: Your Name, Growth Engineering, CloudPulse.\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nPI/Contact Name: {{ $('Validate & Filter').item.json['PI Name'] || $('Validate & Filter').item.json['Contact Name'] }}\\nDepartment/Clinic: {{ $('Validate & Filter').item.json['Department / Lab'] || $('Validate & Filter').item.json['Clinic Name'] }}\\nPaper/Topic: {{ $('Validate & Filter').item.json['Paper (short title)'] || $('Validate & Filter').item.json.Topic }}\\nLimitations/Pain Point: {{ $('Validate & Filter').item.json['Limitations Quote (verbatim)'] || $('Validate & Filter').item.json['Pain Point'] }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
+        "options": {}
+      },
+      "id": "node-gemini-estep",
+      "name": "Gemini 2.5 (CloudPulse Prompt)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3180,
+        1800
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-subject-estep",
+              "name": "Subject",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-body-estep",
+              "name": "Body",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).Body }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-email-estep",
+              "name": "Target_Email",
+              "value": "={{ $('Validate & Filter').item.json.Email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-estep",
+      "name": "Parse CloudPulse Email JSON",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3380,
+        1800
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.Subject }}",
+        "emailType": "html",
+        "sendTo": "={{ $json.Target_Email }}",
+        "toList": [
+          "={{ $json.Target_Email }}"
+        ],
+        "message": "={{ $json.Body.replace(/\\n/g, '<br>') }}",
+        "options": {}
+      },
+      "id": "node-gmail-estep",
+      "name": "Gmail: Draft (hello@yourcompany.com)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3580,
+        1800
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GLu037GBIw2k3Moh",
+          "name": "Gmail account (hello@yourcompany.com)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "node-wait-Synthetix AI",
+      "name": "Wait RateLimit (Synthetix AI)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2980,
+        2020
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are Example Founder, Founder & CEO at Synthetix AI. You are writing a personalised cold outreach email to a Sports Science Director, Head Coach, Football Club Performance Analyst, or Academic Biomechanics PI.\\n\\nLANGUAGE RULES \u2014 select the email language based on the target's country:\\n- United States, Canada, Australia, United Kingdom, Ireland, South Africa, Nigeria, Kenya, Ghana, Ethiopia, Tanzania, Uganda, Rwanda, Senegal, Ivory Coast, or any other African country \u2192 write in English\\n- France, Belgium, Luxembourg, Morocco, Tunisia, Algeria, Cameroon, Madagascar \u2192 write in French (formal 'vous')\\n- Germany, Austria, Switzerland \u2192 write in German (formal Sie-Form)\\n- Spain \u2192 write in Spanish (formal usted)\\n- Italy \u2192 write in Italian (formal Lei)\\n- Netherlands, Belgium (Dutch-speaking) \u2192 write in Dutch (formal u)\\n- Portugal, Brazil \u2192 write in Portuguese (formal o senhor / a senhora)\\n- All other countries or unknown \u2192 write in English\\n\\nRules:\\n1. Use the language selected above. Never mix languages.\\n2. Keep under 120 words. Direct, no filler words.\\n3. Reference their club, institute, or paper explicitly. Show you know their context.\\n4. Core Pitch: Synthetix AI detects pre-injury mechanical risk precursors using markerless 3D pose estimation from existing 2D training cameras. No wearables, no lab suits, no disruption to training.\\n5. Offer: Free technical demo on a short clip of their own training footage.\\n6. CTA: Ask for a 10-minute Zoom call next week.\\n7. Sign off appropriately in the chosen language. Always include: Example Founder, Founder & CEO, Synthetix AI, Synthetix AI.ai\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nPI/Contact Name: {{ $('Validate & Filter').item.json['PI Name'] || $('Validate & Filter').item.json['Contact Name'] }}\\nOrganization/Club: {{ $('Validate & Filter').item.json['Department / Lab'] || $('Validate & Filter').item.json.Organization }}\\nPaper/Focus: {{ $('Validate & Filter').item.json['Paper (short title)'] || $('Validate & Filter').item.json['Focus Area'] }}\\nLimitations/Quote: {{ $('Validate & Filter').item.json['Limitations Quote (verbatim)'] || $('Validate & Filter').item.json.Notes }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
+        "options": {}
+      },
+      "id": "node-gemini-Synthetix AI",
+      "name": "Gemini 2.5 (Synthetix AI Prompt)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3180,
+        2020
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-subject-Synthetix AI",
+              "name": "Subject",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-body-Synthetix AI",
+              "name": "Body",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).Body }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-email-Synthetix AI",
+              "name": "Target_Email",
+              "value": "={{ $('Validate & Filter').item.json.Email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-Synthetix AI",
+      "name": "Parse Synthetix AI Email JSON",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3380,
+        2020
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.Subject }}",
+        "emailType": "html",
+        "sendTo": "={{ $json.Target_Email }}",
+        "toList": [
+          "={{ $json.Target_Email }}"
+        ],
+        "message": "={{ $json.Body.replace(/\\n/g, '<br>') }}",
+        "options": {}
+      },
+      "id": "node-gmail-Synthetix AI",
+      "name": "Gmail: Draft (contact@yourproduct.ai)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3580,
+        2020
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GrowthAgentHAL_Synthetix AI_GMAIL_OAUTH_CREDENTIAL_ID",
+          "name": "Gmail account (contact@yourproduct.ai)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "\u2705 **Unified Outreach Batch Complete!**\n\ud83d\udcec All eligible emails have been routed by product and sitting in their respective Gmail Drafts folders (`hello@yourcompany.com` & `contact@yourproduct.ai`) with recipient email addresses populated.\nPlease review and send!",
+        "options": {}
+      },
+      "id": "node-discord-summary",
+      "name": "Discord Summary Report",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        3800,
+        1888
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&product=eq.cloudpulse_saas&category=in.(brand_voice,product_guide)",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supa-CloudPulse",
+      "name": "Supabase (CloudPulse Context)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2980,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&product=eq.synthetix_ai&category=in.(brand_voice,product_guide)",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supa-Synthetix AI",
+      "name": "Supabase (Synthetix AI Context)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2980,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/mixed_people/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cache-Control",
+              "value": "no-cache"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"api_key\": \"YOUR_APOLLO_API_KEY\",\n  \"q_keywords\": \"Physical Therapy Clinic Owner Germany\",\n  \"person_locations\": [\"Germany\"]\n}",
+        "options": {}
+      },
+      "id": "node-apollo",
+      "name": "Apollo.io (Lead Search)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        1688
+      ],
+      "notesInFlow": true,
+      "notes": "Swap with CRM or Orangeslice API if preferred"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-when-executed-by-another-workflow",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Targets": {
+      "main": [
+        [
+          {
+            "node": "Validate & Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop (Batch 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (Batch 1)": {
+      "main": [
+        [
+          {
+            "node": "Discord Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Product Router (Synthetix AI vs CloudPulse)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Router (Synthetix AI vs CloudPulse)": {
+      "main": [
+        [
+          {
+            "node": "Supabase (Synthetix AI Context)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase (CloudPulse Context)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait RateLimit (CloudPulse)": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 (CloudPulse Prompt)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 (CloudPulse Prompt)": {
+      "main": [
+        [
+          {
+            "node": "Parse CloudPulse Email JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CloudPulse Email JSON": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Draft (hello@yourcompany.com)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Draft (hello@yourcompany.com)": {
+      "main": [
+        [
+          {
+            "node": "Loop (Batch 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait RateLimit (Synthetix AI)": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 (Synthetix AI Prompt)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 (Synthetix AI Prompt)": {
+      "main": [
+        [
+          {
+            "node": "Parse Synthetix AI Email JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Synthetix AI Email JSON": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Draft (contact@yourproduct.ai)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Draft (contact@yourproduct.ai)": {
+      "main": [
+        [
+          {
+            "node": "Loop (Batch 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (CloudPulse Context)": {
+      "main": [
+        [
+          {
+            "node": "Wait RateLimit (CloudPulse)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (Synthetix AI Context)": {
+      "main": [
+        [
+          {
+            "node": "Wait RateLimit (Synthetix AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Read Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

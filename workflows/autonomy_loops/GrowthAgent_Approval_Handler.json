@@ -1,0 +1,271 @@
+{
+  "name": "GrowthAgent \u2014 HITL Approval Handler (Layer 6)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "GrowthAgent-jr-approve",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-approval-trigger",
+      "name": "Webhook: /GrowthAgent-jr-approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-approve",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "approve",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Approved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-reject",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "reject",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Rejected"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-action",
+      "name": "Switch: Approved vs Rejected",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_agent_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"agent_name\": \"HITL Approval Gate (Layer 6)\", \"task_input\": \"Human review of draft via Discord button\", \"task_output\": \"Draft approved by @\" + $('Webhook: /GrowthAgent-jr-approve').item.json.body.username + \" via Discord button click.\", \"status\": \"approved\", \"product\": \"CloudPulse\", \"approved_by\": $('Webhook: /GrowthAgent-jr-approve').item.json.body.username, \"execution_ms\": 120 } }}",
+        "options": {}
+      },
+      "id": "supabase-log-approval",
+      "name": "Supabase: Log HITL Approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook: /GrowthAgent-jr-approve').item.json.body.webhookUrl || 'https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": \"\ud83d\ude80 **GrowthAgent HITL (Layer 6)** \u2014 Content approved by `@\" + $('Webhook: /GrowthAgent-jr-approve').item.json.body.username + \"`! Executing publication pipeline...\" } }}",
+        "options": {}
+      },
+      "id": "discord-confirm-publish",
+      "name": "Discord: Publish Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook: /GrowthAgent-jr-approve').item.json.body.webhookUrl || 'https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": \"\u274c **GrowthAgent HITL (Layer 6)** \u2014 Draft discarded by `@\" + $('Webhook: /GrowthAgent-jr-approve').item.json.body.username + \"`. No action taken.\" } }}",
+        "options": {}
+      },
+      "id": "discord-confirm-reject",
+      "name": "Discord: Rejection Notice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /GrowthAgent-jr-approve": {
+      "main": [
+        [
+          {
+            "node": "Switch: Approved vs Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Approved vs Rejected": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log HITL Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Rejection Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log HITL Approval": {
+      "main": [
+        [
+          {
+            "node": "Discord: Publish Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Switch: Approved vs Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versioGrowthAgent": "a1b2c3d4-e5f6-7890-1234-56789abcdef0",
+  "triggerCount": 1,
+  "tags": [
+    {
+      "name": "GrowthAgent GEOS"
+    },
+    {
+      "name": "Layer 6 HITL"
+    }
+  ]
+}

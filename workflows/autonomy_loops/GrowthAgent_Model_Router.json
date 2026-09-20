@@ -1,0 +1,331 @@
+{
+  "name": "GrowthAgent v3 \u2014 Model Router (Sub-Workflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "task_type",
+              "type": "string"
+            },
+            {
+              "name": "prompt",
+              "type": "string"
+            },
+            {
+              "name": "system_instruction",
+              "type": "string"
+            },
+            {
+              "name": "response_format",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-input",
+      "name": "Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "fast",
+              "output": 0
+            },
+            {
+              "value": "reasoning",
+              "output": 1
+            },
+            {
+              "value": "creative",
+              "output": 2
+            },
+            {
+              "value": "research",
+              "output": 3
+            }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $json.task_type }}",
+        "fallbackOutput": 0
+      },
+      "id": "node-router",
+      "name": "Route by Task Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        320,
+        300
+      ],
+      "notes": "Routes to the correct LLM tier based on task_type.\n\nfast = classification, scoring, tagging, summarization\nreasoning = strategy, analysis, guardian, learning\ncreative = content drafting, carousel prompts\nresearch = web research, GEO probes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{ \"text\": \"{{ $json.system_instruction }}\" }]\n  },\n  \"contents\": [{\n    \"parts\": [{ \"text\": \"{{ $json.prompt }}\" }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"responseMimeType\": \"{{ $json.response_format || 'text/plain' }}\"\n  }\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 15000
+            }
+          }
+        }
+      },
+      "id": "node-gemini-flash",
+      "name": "Gemini 2.5 Flash (Fast)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        160
+      ],
+      "notes": "Cheap/fast tier: classification, scoring, deduplication, tagging, summarization.\n15s batch interval to respect free tier rate limits (5 RPM)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "=YOUR_ANTHROPIC_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 2048,\n  \"system\": \"{{ $json.system_instruction }}\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"{{ $json.prompt }}\" }\n  ]\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 20000
+            }
+          }
+        }
+      },
+      "id": "node-claude-reasoning",
+      "name": "Claude Sonnet (Reasoning)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        300
+      ],
+      "notes": "Reasoning tier: content strategy, complex analysis, brand guardian, learning loop.\n20s batch interval to respect free tier rate limits."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{ \"text\": \"{{ $json.system_instruction }}\" }]\n  },\n  \"contents\": [{\n    \"parts\": [{ \"text\": \"{{ $json.prompt }}\" }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.35,\n    \"responseMimeType\": \"{{ $json.response_format || 'text/plain' }}\"\n  }\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 15000
+            }
+          }
+        }
+      },
+      "id": "node-gemini-creative",
+      "name": "Gemini 2.5 Flash (Creative)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        440
+      ],
+      "notes": "Creative tier: LinkedIn drafting, blog writing, newsletter assembly.\nSlightly higher temperature (0.35) for more engaging outputs."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_PERPLEXITY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"sonar-pro\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"{{ $json.system_instruction }}\" },\n    { \"role\": \"user\", \"content\": \"{{ $json.prompt }}\" }\n  ],\n  \"temperature\": 0.1\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 10000
+            }
+          }
+        }
+      },
+      "id": "node-perplexity",
+      "name": "Perplexity Sonar Pro (Research)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        580
+      ],
+      "notes": "Research tier: web research, GEO probes, trend discovery.\n10s batch interval."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize all model outputs into a standard format\nconst taskType = $('Input').item.json.task_type;\nlet response_text = '';\nlet model_used = '';\n\ntry {\n  if (taskType === 'research') {\n    // Perplexity format\n    response_text = $json.choices[0].message.content;\n    model_used = 'perplexity-sonar-pro';\n  } else if (taskType === 'reasoning') {\n    // Claude format\n    response_text = $json.content[0].text;\n    model_used = 'claude-sonnet-4';\n  } else {\n    // Gemini format (fast + creative)\n    response_text = $json.candidates[0].content.parts[0].text;\n    model_used = 'gemini-2.5-flash';\n  }\n} catch (e) {\n  response_text = JSON.stringify($json);\n  model_used = 'error';\n}\n\nreturn {\n  response_text,\n  model_used,\n  task_type: taskType\n};"
+      },
+      "id": "node-normalize",
+      "name": "Normalize Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ],
+      "notes": "Normalizes all model outputs into {response_text, model_used, task_type} so downstream workflows don't need to know which model was called."
+    }
+  ],
+  "connections": {
+    "Input": {
+      "main": [
+        [
+          {
+            "node": "Route by Task Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Task Type": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash (Fast)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claude Sonnet (Reasoning)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini 2.5 Flash (Creative)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Perplexity Sonar Pro (Research)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash (Fast)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet (Reasoning)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash (Creative)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity Sonar Pro (Research)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

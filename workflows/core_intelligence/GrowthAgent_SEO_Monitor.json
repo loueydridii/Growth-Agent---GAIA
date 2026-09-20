@@ -1,0 +1,177 @@
+{
+  "name": "GrowthAgent SEO Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Daily 6AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://searchconsole.googleapis.com/webmasters/v3/sites/sc-domain:Synthetix AI.ai/searchAnalytics/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer [PLACEHOLDER_SERVICE_ACCOUNT_TOKEN]"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"startDate\": \"{{ new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0] }}\",\n  \"endDate\": \"{{ new Date().toISOString().split('T')[0] }}\",\n  \"dimensions\": [\"query\"],\n  \"rowLimit\": 10\n}"
+      },
+      "id": "node-gsc",
+      "name": "Google Search Console API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ],
+      "notes": "Fetch top queries and dropping traffic. Requires Google Cloud Service Account."
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const rows = $json.rows || [];\n  if (rows.length === 0) return { empty: true };\n  \n  return rows.map(r => ({\n    signal_type: 'seo_anomaly',\n    source: 'google_search_console',\n    product: 'synthetix_ai',\n    title: `SEO Keyword Trend: ${r.keys[0]}`,\n    summary: `Keyword '${r.keys[0]}' generated ${r.clicks} clicks and ${r.impressions} impressions over the last 7 days. Average position: ${Math.round(r.position)}.`,\n    raw_data: JSON.stringify(r),\n    relevance_score: 80,\n    confidence_score: 100\n  }));\n} catch(e) {\n  return { empty: true, error: e.message };\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse GSC Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.empty || false }}",
+              "value2": false,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if",
+      "name": "Has Data?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  signal_type: $json.signal_type,\n  source: $json.source,\n  product: $json.product,\n  title: $json.title,\n  summary: $json.summary,\n  raw_data: $json.raw_data,\n  relevance_score: $json.relevance_score,\n  confidence_score: $json.confidence_score\n} }}"
+      },
+      "id": "node-insert",
+      "name": "Supabase: Insert SEO Signal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 6AM": {
+      "main": [
+        [
+          {
+            "node": "Google Search Console API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search Console API": {
+      "main": [
+        [
+          {
+            "node": "Parse GSC Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse GSC Data": {
+      "main": [
+        [
+          {
+            "node": "Has Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Data?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert SEO Signal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-seo-monitor-v1"
+}

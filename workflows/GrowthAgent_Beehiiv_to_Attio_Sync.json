@@ -1,0 +1,123 @@
+{
+  "name": "GrowthAgent NewsletterPlatform to CRM Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "NewsletterPlatform-subscriber",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-NewsletterPlatform",
+      "name": "Webhook (NewsletterPlatform)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Extract email from NewsletterPlatform payload (event: subscription.created)\nconst email = $json.body.data.email;\nif (!email) return { empty: true };\n\nreturn {\n  email: email,\n  status: $json.body.data.status,\n  created_at: $json.body.data.created_at\n};\n"
+      },
+      "id": "node-parse",
+      "name": "Parse Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.empty || false }}",
+              "value2": false,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if",
+      "name": "Valid Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://api.CRM.com/v2/objects/people/records?matching_attribute=email_addresses",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.CRM_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"data\": {\n    \"values\": {\n      \"email_addresses\": [{ \"email_address\": $json.email }],\n      \"description\": [{\"value\": \"Imported from NewsletterPlatform newsletter\"}]\n    }\n  }\n} }}"
+      },
+      "id": "node-CRM",
+      "name": "CRM: Upsert Person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (NewsletterPlatform)": {
+      "main": [
+        [
+          {
+            "node": "Parse Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Payload": {
+      "main": [
+        [
+          {
+            "node": "Valid Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Email?": {
+      "main": [
+        [
+          {
+            "node": "CRM: Upsert Person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-NewsletterPlatform-CRM-v1"
+}

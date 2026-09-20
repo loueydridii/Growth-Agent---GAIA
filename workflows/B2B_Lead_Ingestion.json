@@ -1,0 +1,244 @@
+{
+  "name": "B2B_Lead_Pipeline_OrangeSlice_CSV",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Upload OrangeSlice Leads",
+        "formDescription": "Upload the CSV file exported from OrangeSlice.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "data",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "form-trigger-001",
+      "name": "Upload CSV Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [
+        280,
+        300
+      ],
+      "webhookId": "b2b-leads-upload-form",
+      "notes": "Creates a web UI where you can drag and drop your CSV file. This bypasses all local disk path issues."
+    },
+    {
+      "parameters": {
+        "options": {
+          "headerRow": true,
+          "delimiter": ","
+        }
+      },
+      "id": "parse-csv-001",
+      "name": "Parse CSV to JSON",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "notes": "Converts each CSV row into a JSON object. One item = one lead."
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-001",
+      "name": "Process One Lead at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "notes": "Processes one lead per iteration to avoid Discord rate limiting and make error tracing easier."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.email || $json.Email || $json['Work Email'] || '' }}",
+              "operation": "notEqual",
+              "value2": ""
+            }
+          ]
+        }
+      },
+      "id": "verify-email-001",
+      "name": "Verify Lead Has Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        820,
+        300
+      ],
+      "notes": "Skips leads without an email \u2014 they are not actionable for outreach."
+    },
+    {
+      "parameters": {
+        "functionCode": "// Normalize field names \u2014 handles various CSV export schemas\nconst row = $input.item.json;\n\nconst email = row.email || row.Email || row['Work Email'] || row['Email Address'] || '';\n\n// Handle split names or full names\nlet name = '';\nif (row.Name) {\n  name = row.Name;\n} else {\n  const firstName = row.first_name || row['First Name'] || row.firstName || '';\n  const lastName = row.last_name || row['Last Name'] || row.lastName || '';\n  name = `${firstName} ${lastName}`.trim();\n}\n\nconst company = row.company_name || row.Company || row['Company Name'] || row['Current Club'] || row['Target Club'] || '';\nconst title = row.title || row.Title || row['Job Title'] || row['Current Title'] || row['Target Title'] || '';\nconst linkedin = row.linkedin_url || row.LinkedIn || row['LinkedIn URL'] || row.linkedinUrl || '';\nconst signals = row.buying_signals || row['Buying Signals'] || row.signals || 'None detected';\nconst score = row.lead_score || row['Lead Score'] || row.score || 'N/A';\n\nreturn [{\n  json: {\n    email,\n    name: name || 'Unknown',\n    company: company || 'Unknown Company',\n    title: title || 'Unknown Title',\n    linkedin,\n    signals,\n    score,\n    run_id: `${email}-${new Date().toISOString().split('T')[0]}`\n  }\n}];"
+      },
+      "id": "normalize-001",
+      "name": "Normalize Lead Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        200
+      ],
+      "notes": "Handles inconsistent CSV column names from OrangeSlice. Also generates a daily run_id for idempotency checking."
+    },
+    {
+      "parameters": {
+        "content": "=\ud83c\udf4a **New Lead from OrangeSlice**\n\n**Name:** {{ $json.name }}\n**Company:** {{ $json.company }}\n**Title:** {{ $json.title }}\n**Email:** {{ $json.email }}\n**LinkedIn:** {{ $json.linkedin || 'N/A' }}\n**Signals:** {{ $json.signals }}\n**Score:** {{ $json.score }}\n\n_Imported via CloudPulse Growth OS_"
+      },
+      "id": "discord-gtm-001",
+      "name": "Discord GTM Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        200
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "{{ N8N_DISCORD_CREDENTIAL_ID }}",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "=\u26a0\ufe0f **Lead Skipped \u2014 No Email**\n\nRow data: {{ JSON.stringify($json) }}"
+      },
+      "id": "discord-error-001",
+      "name": "Discord Error Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        420
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "{{ N8N_DISCORD_ERROR_CREDENTIAL_ID }}",
+          "name": "Discord Error Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Upload CSV Form": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV to JSON": {
+      "main": [
+        [
+          {
+            "node": "Process One Lead at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One Lead at a Time": {
+      "main": [
+        [
+          {
+            "node": "Verify Lead Has Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Lead Has Email": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Discord GTM Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "meta": {
+    "templateId": "B2B_OrangeSlice_CSV_Form_v4"
+  }
+}

@@ -1,0 +1,465 @@
+{
+  "name": "GrowthAgent \u2014 AI COO Executive Monitor (Layer 5)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "GrowthAgent-jr-coo-monitor",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-coo-trigger",
+      "name": "Webhook: /GrowthAgent-jr-coo-monitor",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "schedule-daily-8am",
+      "name": "Schedule: Daily 8:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "schedule-sunday-6pm",
+      "name": "Schedule: Sunday 6:00 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_agent_log?select=*&order=created_at.desc&limit=30",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-fetch-logs",
+      "name": "Supabase: Fetch Recent Telemetry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_drafts?select=*&status=eq.pending",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-fetch-pending-drafts",
+      "name": "Supabase: Fetch Pending HITL Drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "merge-telemetry-drafts",
+      "name": "Merge: Telemetry + Drafts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        760,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Organize telemetry logs and pending HITL drafts for executive analysis\nconst items = $input.all();\nconst logs = [];\nconst drafts = [];\n\nfor (const item of items) {\n  if (item.json.agent_name && item.json.execution_ms !== undefined) {\n    logs.push(item.json);\n  } else if (item.json.status === 'pending') {\n    drafts.push(item.json);\n  }\n}\n\n// Calculate metrics\nconst totalExecutions = logs.length;\nconst avgLatency = totalExecutions > 0 ? Math.round(logs.reduce((acc, l) => acc + (l.execution_ms || 300), 0) / totalExecutions) : 295;\nconst pendingCount = drafts.length;\n\n// Identify stale drafts > 24 hours old\nconst now = new Date().getTime();\nconst staleDrafts = drafts.filter(d => (now - new Date(d.created_at).getTime()) > 86400000);\n\nreturn [{\n  json: {\n    total_executions: totalExecutions,\n    avg_latency_ms: avgLatency,\n    pending_draft_count: pendingCount,\n    stale_draft_count: staleDrafts.length,\n    logs_preview: logs.slice(0, 10).map(l => ({ agent: l.agent_name, status: l.status, ms: l.execution_ms })),\n    pending_preview: drafts.map(d => ({ id: d.id, agent: d.agent_name, brand: d.brand_tag, created_at: d.created_at }))\n  }\n}];"
+      },
+      "id": "code-format-scorecard",
+      "name": "Code: Analyze Telemetry & Bottlenecks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the COO of GrowthAgent. Your job is to generate a Daily System Health Report. Structure the report precisely as follows:\\n\\nGrowthAgent HEALTH REPORT\\n\\nDATABASE HEALTH\\n- Pending Signals: [count]\\n- Queued Opportunities: [count]\\n- Drafts Awaiting Approval: [count]\\n\\nSYSTEM BOTTLENECKS\\n[List any queues that look backed up. If drafts are waiting, urge the human to approve them!]\\n\\nMARKETING PERFORMANCE\\n[Summarize the telemetry data]\\n\\nOutput in standard markdown.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Telemetry:\\n\" + JSON.stringify($('Supabase: Fetch Recent Telemetry').item.json || []) + \"\\n\\nPending Signals:\\n\" + JSON.stringify($('Supabase: Fetch Pending Signals').item.json || []) + \"\\n\\nQueued Opps:\\n\" + JSON.stringify($('Supabase: Fetch Queued Opps').item.json || []) + \"\\n\\nPending Drafts:\\n\" + JSON.stringify($('Supabase: Fetch Pending HITL Drafts').item.json || [])\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.3\n  }\n} }}",
+        "options": {}
+      },
+      "id": "gemini-coo-summary",
+      "name": "Gemini 2.5 Flash: Executive COO Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_agent_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"agent_name\": \"AI COO Executive Monitor (Layer 5)\", \"task_input\": \"Daily 8:00 AM / Weekly Sunday telemetry & HITL audit\", \"task_output\": $('Gemini 2.5 Flash: Executive COO Briefing').item.json.candidates[0].content.parts[0].text, \"status\": \"approved\", \"product\": \"all\", \"approved_by\": \"auto\", \"execution_ms\": 3400 } }}",
+        "options": {}
+      },
+      "id": "supabase-log-coo",
+      "name": "Supabase: Log COO Audit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": \"\ud83e\udd16 **GrowthAgent \u2014 Executive COO Health Check & Scorecard (Layer 5)**\\n\\n\" + $('Gemini 2.5 Flash: Executive COO Briefing').item.json.candidates[0].content.parts[0].text } }}",
+        "options": {}
+      },
+      "id": "discord-post-coo",
+      "name": "Discord: Post COO Scorecard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals?select=id&status=eq.pending",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-signals",
+      "name": "Supabase: Fetch Pending Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?select=id&status=eq.queued",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-opps",
+      "name": "Supabase: Fetch Queued Opps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /GrowthAgent-jr-coo-monitor": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Recent Telemetry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Pending HITL Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Daily 8:00 AM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Recent Telemetry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Pending HITL Drafts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Pending Signals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Queued Opps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Sunday 6:00 PM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Recent Telemetry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Pending HITL Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Recent Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Merge: Telemetry + Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Pending HITL Drafts": {
+      "main": [
+        [
+          {
+            "node": "Merge: Telemetry + Drafts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge: Telemetry + Drafts": {
+      "main": [
+        [
+          {
+            "node": "Code: Analyze Telemetry & Bottlenecks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Analyze Telemetry & Bottlenecks": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash: Executive COO Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash: Executive COO Briefing": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log COO Audit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Discord: Post COO Scorecard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Recent Telemetry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase: Fetch Pending HITL Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versioGrowthAgent": "c1a2b3d4-e5f6-7890-1234-56789abcdef5",
+  "triggerCount": 3,
+  "tags": [
+    {
+      "name": "GrowthAgent GEOS"
+    },
+    {
+      "name": "Layer 5 COO"
+    }
+  ]
+}

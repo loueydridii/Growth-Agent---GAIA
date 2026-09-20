@@ -1,0 +1,345 @@
+{
+  "name": "GrowthAgent v3 \u2014 Brand & Claims Guardian",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "draft_id",
+              "type": "string"
+            },
+            {
+              "name": "draft_content",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "name": "opportunity_id",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-input",
+      "name": "Input (from Content Agent)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Brand & Claims Guardian for Synthetix AI (by CloudPulse). Your job is to ensure that NO content is published that could damage brand trust or make unsupported claims.\\n\\nYou MUST check for the following violations:\\n\\n1. UNSUPPORTED CLAIMS: Any sentence containing 'proven', 'guaranteed', 'cures', 'prevents injuries', 'diagnoses' without a peer-reviewed citation \u2192 BLOCK\\n2. EXAGGERATED LANGUAGE: 'revolutionary', 'game-changing', 'world-first', 'best', 'groundbreaking', 'AI-powered' \u2192 FLAG with rewrite suggestion\\n3. MEDICAL/DIAGNOSTIC CLAIMS: Any claim that Synthetix AI diagnoses injuries, prescribes treatment, or guarantees outcomes \u2192 BLOCK. We surface 'movement indicators' and 'advisory insights', never 'diagnosis'\\n4. UNVERIFIED STATISTICS: Any number, percentage, or statistic without source attribution \u2192 FLAG\\n5. COMPETITOR DISPARAGEMENT: Negative statements about competitors (LangSmith, Arize AI, Dynatrace) \u2192 FLAG with softer alternative\\n6. BRAND VOICE: Synthetix AI tone is technical, understated, honest. No hype. Prefer 'Synthetix AI shows...' over 'Synthetix AI revolutionizes...'\\n7. PRODUCT OVERCLAIMS: Claiming real-time analysis (sessions take ~2 min), claiming wearable integration is live (it's on roadmap), claiming 3D skeletal output is production-ready (it's advisory/beta) \u2192 BLOCK\\n\\nReturn a JSON object:\\n{\\n  \\\"guardian_status\\\": \\\"passed\\\" | \\\"flagged\\\" | \\\"blocked\\\",\\n  \\\"violations\\\": [{\\n    \\\"type\\\": \\\"unsupported_claim\\\" | \\\"exaggerated_language\\\" | \\\"medical_claim\\\" | \\\"unverified_stat\\\" | \\\"competitor_disparagement\\\" | \\\"brand_voice\\\" | \\\"product_overclaim\\\",\\n    \\\"severity\\\": \\\"block\\\" | \\\"flag\\\",\\n    \\\"original_text\\\": \\\"the problematic text\\\",\\n    \\\"suggestion\\\": \\\"rewritten alternative\\\"\\n  }],\\n  \\\"overall_notes\\\": \\\"brief summary\\\"\\n}\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Review this draft content for brand compliance and claims safety:\\n\\n\" + $json.draft_content\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-guardian-check",
+      "name": "Gemini: Guardian Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        340,
+        300
+      ],
+      "notes": "Uses Claude reasoning tier for careful brand/claims judgment."
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const result = JSON.parse(cleaned);\n  const inputData = $('Input (from Content Agent)').item.json;\n  \n  return {\n    draft_id: inputData.draft_id,\n    opportunity_id: inputData.opportunity_id,\n    brand: inputData.brand,\n    draft_content: inputData.draft_content,\n    guardian_status: result.guardian_status || 'flagged',\n    violations: result.violations || [],\n    violation_count: (result.violations || []).length,\n    block_count: (result.violations || []).filter(v => v.severity === 'block').length,\n    overall_notes: result.overall_notes || ''\n  };\n} catch (e) {\n  return {\n    draft_id: $('Input (from Content Agent)').item.json.draft_id,\n    opportunity_id: $('Input (from Content Agent)').item.json.opportunity_id,\n    guardian_status: 'flagged',\n    violations: [],\n    violation_count: 0,\n    block_count: 0,\n    overall_notes: 'Guardian parse error: ' + e.message\n  };\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse Guardian Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "passed",
+              "output": 0
+            },
+            {
+              "value": "flagged",
+              "output": 1
+            },
+            {
+              "value": "blocked",
+              "output": 2
+            }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $json.guardian_status }}",
+        "fallbackOutput": 1
+      },
+      "id": "node-route",
+      "name": "Guardian Result Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"status\": \"pending_approval\" } }}",
+        "options": {}
+      },
+      "id": "node-passed",
+      "name": "Supabase: Mark Pending Approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        160
+      ],
+      "notes": "Guardian PASSED \u2192 forward to HITL approval."
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\u26a0\ufe0f **GrowthAgent \u2014 Brand Guardian Flagged a Draft**\n\n**Status:** FLAGGED ({{ $json.violation_count }} issue{{ $json.violation_count > 1 ? 's' : '' }})\n**Opportunity:** {{ $json.opportunity_id }}\n\n**Issues Found:**\n{{ $json.violations.map(v => '\u2022 [' + v.severity.toUpperCase() + '] ' + v.type + ': \"' + (v.original_text || '').substring(0, 80) + '...\"\\n  \u2192 Suggestion: ' + (v.suggestion || 'No suggestion')).join('\\n') }}\n\n**Guardian Notes:** {{ $json.overall_notes }}\n\n\ud83d\udc49 The draft has been sent for human review with these warnings highlighted.",
+        "options": {}
+      },
+      "id": "node-flagged-discord",
+      "name": "Discord: Flagged Warning",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"status\": \"pending_approval\" } }}",
+        "options": {}
+      },
+      "id": "node-flagged-forward",
+      "name": "Supabase: Mark Flagged + Pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83d\uded1 **GrowthAgent \u2014 Brand Guardian BLOCKED a Draft**\n\n**Status:** BLOCKED ({{ $json.block_count }} critical violation{{ $json.block_count > 1 ? 's' : '' }})\n**Opportunity:** {{ $json.opportunity_id }}\n\n**Critical Violations:**\n{{ $json.violations.filter(v => v.severity === 'block').map(v => '\u274c ' + v.type + ': \"' + (v.original_text || '').substring(0, 100) + '...\"\\n  \u2192 ' + (v.suggestion || 'Must be rewritten')).join('\\n') }}\n\n**Guardian Notes:** {{ $json.overall_notes }}\n\n\ud83d\udc49 This draft has been returned to the content agent for rewriting. It will NOT be sent for human approval.",
+        "options": {}
+      },
+      "id": "node-blocked-discord",
+      "name": "Discord: Blocked Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        460
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"status\": \"queued\" } }}",
+        "options": {}
+      },
+      "id": "node-blocked-requeue",
+      "name": "Supabase: Requeue for Rewrite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        460
+      ],
+      "notes": "Blocked drafts go back to queued status for the content agent to rewrite."
+    }
+  ],
+  "connections": {
+    "Input (from Content Agent)": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Guardian Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Guardian Result": {
+      "main": [
+        [
+          {
+            "node": "Guardian Result Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardian Result Router": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Pending Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Flagged Warning",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Blocked Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord: Flagged Warning": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Flagged + Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord: Blocked Alert": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Requeue for Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Guardian Review": {
+      "main": [
+        [
+          {
+            "node": "Parse Guardian Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

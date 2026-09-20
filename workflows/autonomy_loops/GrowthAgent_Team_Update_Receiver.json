@@ -1,0 +1,267 @@
+{
+  "name": "GrowthAgent \u2014 Team Update Receiver (Webhook \u2192 Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "GrowthAgent-jr-team-update",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook: Receive Team Update",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "GrowthAgent-jr-team-update"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-member",
+              "name": "member_name",
+              "value": "={{ $json.body.member_name || $json.query.member || 'anonymous' }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-product",
+              "name": "product",
+              "value": "={{ $json.body.product || $json.query.product || 'all' }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-update",
+              "name": "update_text",
+              "value": "={{ $json.body.update_text || $json.body.update || $json.query.update || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-update",
+      "name": "Parse Update Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_team_updates",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"member_name\": \"{{ $json.member_name }}\",\n  \"product\": \"{{ $json.product }}\",\n  \"update_text\": \"{{ $json.update_text }}\",\n  \"ingested\": false\n}",
+        "options": {}
+      },
+      "id": "node-supabase-insert",
+      "name": "Supabase: Store Team Update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"models/gemini-embedding-2\",\n  \"content\": {\n    \"parts\": [{ \"text\": \"Team update from {{ $('Parse Update Fields').item.json.member_name }} about {{ $('Parse Update Fields').item.json.product }}: {{ $('Parse Update Fields').item.json.update_text }}\" }]\n  }\n}",
+        "options": {}
+      },
+      "id": "node-gemini-embed",
+      "name": "Gemini: Embed Update Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": \"{{ $('Parse Update Fields').item.json.product }}\",\n  \"category\": \"team_update\",\n  \"subcategory\": \"{{ $('Parse Update Fields').item.json.member_name }}\",\n  \"content\": \"Team update from {{ $('Parse Update Fields').item.json.member_name }}: {{ $('Parse Update Fields').item.json.update_text }}\",\n  \"metadata\": { \"member\": \"{{ $('Parse Update Fields').item.json.member_name }}\", \"raw\": \"{{ $('Parse Update Fields').item.json.update_text }}\" },\n  \"embedding\": {{ $json.embedding.values }},\n  \"source_file\": \"team_update_webhook\"\n}",
+        "options": {}
+      },
+      "id": "node-supabase-memory",
+      "name": "Supabase: Add to Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"message\": \"Update received and stored in GrowthAgent memory.\" }",
+        "options": {}
+      },
+      "id": "node-respond",
+      "name": "Respond: OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Receive Team Update": {
+      "main": [
+        [
+          {
+            "node": "Parse Update Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Update Fields": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Store Team Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Store Team Update": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Embed Update Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Embed Update Text": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Add to Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Add to Memory": {
+      "main": [
+        [
+          {
+            "node": "Respond: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Parse Update Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

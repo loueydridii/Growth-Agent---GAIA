@@ -1,0 +1,22 @@
+# Node / General
+node_modules/
+dist/
+build/
+.env
+
+# n8n specific
+.n8n/
+n8n-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE & Agent Config
+.gemini/
+.agents/logs/
+.agents/scratch/
+graphify-out/
+
+# Local Guides
+guide.md

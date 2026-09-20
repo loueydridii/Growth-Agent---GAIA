@@ -1,0 +1,789 @@
+{
+  "name": "LinkedIn Content Automation (V2 \u2014 Supabase Memory + Gemini 2.5)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Daily 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": "YOUR_GOOGLE_SHEET_ID",
+        "range": "Ideation!A:D",
+        "options": {
+          "valueRenderMode": "UNFORMATTED_VALUE"
+        },
+        "filters": {
+          "column": "Status",
+          "value": "pending"
+        }
+      },
+      "id": "2",
+      "name": "Read Ideation Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7X7zyxKjao8kw6T7",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Reads the Content Ideation sheet. Expected columns: A=Topic, B=Brand (CloudPulse/Synthetix AI), C=Angle, D=Status (pending/drafted/published)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.Topic || $json.topic || $json.TOPIC || '' }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Has Pending Idea?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ],
+      "notes": "Branch TRUE \u2192 use sheet idea. Branch FALSE \u2192 scrape the web for a fresh topic."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{ $credentials.geminiApiKey }}",
+        "method": "POST",
+        "sendBody": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are a healthcare and sports-tech news scout. Find one timely, specific topic from the last 48 hours that is relevant to EITHER: (A) Remote Patient Monitoring, gait analysis, wearable health tech, MSK rehabilitation \u2014 for the brand CloudPulse, OR (B) Sports science, injury prevention in football/soccer, agentic LLM evaluation, AI in coaching \u2014 for the brand Synthetix AI. Return ONLY a JSON object: {\\\"topic\\\": \\\"...\\\", \\\"brand\\\": \\\"CloudPulse\\\" or \\\"Synthetix AI\\\", \\\"angle\\\": \\\"...\\\"}. No markdown, no explanation.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.4,\n    \"responseMimeType\": \"application/json\"\n  }\n}"
+      },
+      "id": "4",
+      "name": "Gemini: Find Trending Topic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        440
+      ],
+      "notes": "Fallback: if the ideation sheet is empty, ask Gemini to find a fresh topic from recent news."
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "topic",
+              "value": "={{ $json.Topic || $json.topic || $json.TOPIC || '' }}"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $json.Brand || $json.brand || $json.BRAND || '' }}"
+            },
+            {
+              "name": "angle",
+              "value": "={{ $json.Angle || $json.angle || $json.ANGLE || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5",
+      "name": "Normalize Sheet Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        920,
+        200
+      ],
+      "notes": "Normalizes the sheet row into a standard {topic, brand, angle} payload for downstream nodes."
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "topic",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).topic }}"
+            },
+            {
+              "name": "brand",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).brand }}"
+            },
+            {
+              "name": "angle",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).angle }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6",
+      "name": "Normalize Scraped Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1140,
+        440
+      ],
+      "notes": "Parses the Gemini JSON response and normalizes it into the same {topic, brand, angle} format."
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "output": "all"
+      },
+      "id": "7",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        300
+      ],
+      "notes": "Merges both branches back into a single stream. Only one branch fires per execution."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "CloudPulse",
+              "output": 0
+            },
+            {
+              "value": "Synthetix AI",
+              "output": 1
+            }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $json.brand }}"
+      },
+      "id": "8",
+      "name": "Brand Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        300
+      ],
+      "notes": "Routes to the correct system prompt based on brand: CloudPulse \u2192 Output 0, Synthetix AI \u2192 Output 1."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{ $credentials.geminiApiKey }}",
+        "method": "POST",
+        "sendBody": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Lead Content Engineer for CloudPulse. Your objective is to draft premium, deeply engaging LinkedIn posts targeting doctors, clinicians, physical therapists, and healthcare decision-makers.\\n\\nFORMATTING RULES:\\n- Start with a bold, punchy 6-10 word hook.\\n- Keep paragraphs short (1-2 sentences max).\\n- Use strategic emojis to break up text but do not overuse them (max 6-8 per post).\\n- End with 8-10 relevant hashtags.\\n\\nBRAND CONTEXT \u2014 CloudPulse:\\n- Tone: Clinical, highly professional, trustworthy, medical-adjacent.\\n- Products: eBPF telemetrys that stream gait data at 100 Hz, continuous gait monitoring platform, Remote Patient Monitoring (RPM) dashboard.\\n- Focus areas: Biomechanical symmetry, clinical insights, the 'other 23 hours' of rehabilitation, patient compliance, actionable data for clinicians.\\n- Keywords to weave in: RPM, gait analysis, digital twin, MSK rehabilitation, patient outcomes, biomechanical symmetry, post-surgical monitoring.\\n- STRICT RULE: Do not use hype language. Doctors care about reliable data, patient outcomes, and clinical workflows. Never say 'revolutionary' or 'game-changing'.\\n\\nOUTPUT FORMAT \u2014 Return ONLY a valid JSON object with these exact keys:\\n{\\n  \\\"caption\\\": \\\"The full LinkedIn caption text with hook in **bold** at the start\\\",\\n  \\\"first_comment\\\": \\\"A CTA or discussion-starter comment to post immediately after publishing\\\",\\n  \\\"carousel_visual_prompt\\\": \\\"A detailed prompt (100+ words) to generate a premium LinkedIn carousel cover slide (1200x1500px portrait). Include: topic, layout, visual description, hook text, and branding colors (primary teal #3AB09E, dark surface #0B1412, logo ink #000000, teal deep #1F7A6C).\\\"\\n}\\n\\nNo markdown wrapping. No explanation. Just the JSON.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Topic: {{ $json.topic }}\\nAngle: {{ $json.angle }}\\n\\nGenerate a LinkedIn post for the CloudPulse company page.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"responseMimeType\": \"application/json\"\n  }\n}"
+      },
+      "id": "9",
+      "name": "Gemini: Draft CloudPulse Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        200
+      ],
+      "notes": "Generates the full LinkedIn post (caption, first comment, visual prompt) for CloudPulse using Gemini."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{ $credentials.geminiApiKey }}",
+        "method": "POST",
+        "sendBody": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Lead Content Engineer for Synthetix AI by CloudPulse. Your objective is to draft premium, deeply engaging LinkedIn posts targeting sports coaches, high-performance directors, sports scientists, physiotherapists, and athletes.\\n\\nFORMATTING RULES:\\n- Start with a bold, punchy 6-10 word hook.\\n- Keep paragraphs short (1-2 sentences max).\\n- Use strategic emojis to break up text but do not overuse them (max 6-8 per post).\\n- End with 8-10 relevant hashtags.\\n\\nBRAND CONTEXT \u2014 Synthetix AI:\\n- Tone: High-performance, technical, honest, athletic, and understated.\\n- Product: Camera-only, markerless movement analysis platform. Upload a phone-shot training clip, tag the athlete, get a full biomechanical report in ~2 minutes. No wearable, no lab, no markers.\\n- Features: Annotated video, Coach View (availability, risk, confidence), Clinical View (joint angles, symmetry), Movement Assessment Tool (MAT) scoring, 3D skeletal preview (advisory/beta), dual-athlete comparison, downloadable report.\\n- Focus areas: Provenance on every output, honest metrics, quality-gated outputs, no black box, landing symmetry, injury-risk indicators (advisory only).\\n- Keywords to weave in: movement intelligence, agentic evals, biomechanics, pitch-side insights, six-stage pipeline, provenance.\\n- STRICT RULES:\\n  1. NEVER overclaim clinical value. We surface movement indicators; we do NOT diagnose injuries. Use 'advisory' or 'movement insight' \u2014 never 'diagnosis'.\\n  2. NEVER use hype language ('revolutionary', 'game-changing', 'AI-powered'). Prefer specific, understated verbs: 'Synthetix AI shows\u2026', 'Synthetix AI surfaces\u2026', 'Synthetix AI suppresses\u2026'.\\n  3. Do NOT claim wearable integration is live (it is on the roadmap). Do NOT claim real-time analysis (sessions take ~2 min).\\n  4. Trust is built through specificity and understatement.\\n\\nOUTPUT FORMAT \u2014 Return ONLY a valid JSON object with these exact keys:\\n{\\n  \\\"caption\\\": \\\"The full LinkedIn caption text with hook in **bold** at the start\\\",\\n  \\\"first_comment\\\": \\\"A CTA or discussion-starter comment to post immediately after publishing\\\",\\n  \\\"carousel_visual_prompt\\\": \\\"A detailed prompt (100+ words) to generate a premium LinkedIn carousel cover slide (1200x1500px portrait). Include: topic, layout, visual description, hook text, and branding colors (primary blue #2D4FE0, dark ink #0A0A0A, light blue accent #5C7AF0, soft background #F7F8FB, with red/copper neon Synthetix AI logo styling).\\\"\\n}\\n\\nNo markdown wrapping. No explanation. Just the JSON.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Topic: {{ $json.topic }}\\nAngle: {{ $json.angle }}\\n\\nGenerate a LinkedIn post for the Synthetix AI company page.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"responseMimeType\": \"application/json\"\n  }\n}"
+      },
+      "id": "10",
+      "name": "Gemini: Draft Synthetix AI Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        420
+      ],
+      "notes": "Generates the full LinkedIn post (caption, first comment, visual prompt) for Synthetix AI using Gemini."
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "output": "all"
+      },
+      "id": "11",
+      "name": "Merge Post Output",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        2040,
+        300
+      ],
+      "notes": "Merges both brand outputs back into a single stream."
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "caption",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).caption }}"
+            },
+            {
+              "name": "first_comment",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).first_comment }}"
+            },
+            {
+              "name": "carousel_visual_prompt",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).carousel_visual_prompt }}"
+            },
+            {
+              "name": "brand",
+              "value": "={{ $('Brand Router').item.json.brand }}"
+            },
+            {
+              "name": "topic",
+              "value": "={{ $('Brand Router').item.json.topic }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12",
+      "name": "Parse AI Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2260,
+        300
+      ],
+      "notes": "Extracts caption, first_comment, and carousel_visual_prompt from the Gemini response."
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{ $credentials.geminiApiKey }}",
+        "method": "POST",
+        "sendBody": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"{{ $json.carousel_visual_prompt }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseModalities\": [\"TEXT\", \"IMAGE\"]\n  }\n}"
+      },
+      "id": "13",
+      "name": "Gemini: Generate Carousel Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2500,
+        300
+      ],
+      "notes": "Takes the carousel_visual_prompt and generates the cover slide image via Gemini Imagen. The response will contain a base64-encoded image."
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "binaryPropertyName": "carousel_image",
+        "sourceProperty": "={{ $json.candidates[0].content.parts.find(p => p.inlineData).inlineData.data }}",
+        "fileName": "={{ $('Parse AI Output').item.json.brand }}_{{ $('Parse AI Output').item.json.topic.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40) }}_carousel.png",
+        "mimeType": "image/png",
+        "options": {}
+      },
+      "id": "14",
+      "name": "Convert Base64 to Image",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [
+        2720,
+        300
+      ],
+      "notes": "Decodes the base64 image from Gemini into a binary PNG file for upload."
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "folderId": "{{ YOUR_GOOGLE_DRIVE_FOLDER_ID }}",
+        "name": "={{ $('Parse AI Output').item.json.brand }}_{{ $('Parse AI Output').item.json.topic.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40) }}_carousel.png",
+        "binaryPropertyName": "carousel_image"
+      },
+      "id": "15",
+      "name": "Upload Image to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2940,
+        200
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "7X7zyxKjao8kw6T7",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Uploads the generated carousel image to the designated Google Drive folder."
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "sheetId": "{{ YOUR_CONTENT_CALENDAR_SHEET_ID }}",
+        "range": "Calendar!A:G",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ new Date().toISOString().split('T')[0] }}",
+            "Brand": "={{ $('Parse AI Output').item.json.brand }}",
+            "Topic": "={{ $('Parse AI Output').item.json.topic }}",
+            "Caption": "={{ $('Parse AI Output').item.json.caption }}",
+            "First Comment": "={{ $('Parse AI Output').item.json.first_comment }}",
+            "Image URL": "={{ $('Upload Image to Drive').item.json.webViewLink }}",
+            "Status": "Drafted \u2014 Pending Review"
+          }
+        }
+      },
+      "id": "16",
+      "name": "Update Content Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2940,
+        420
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7X7zyxKjao8kw6T7",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Writes the generated caption, comment, image link, and status back to the Content Calendar sheet."
+    },
+    {
+      "parameters": {
+        "webhookUri": "{{ YOUR_DISCORD_WEBHOOK_URL }}",
+        "content": "=\ud83d\udd14 **New LinkedIn Post Drafted**\n\n**Brand:** {{ $('Parse AI Output').item.json.brand }}\n**Topic:** {{ $('Parse AI Output').item.json.topic }}\n\n\ud83d\udcdd **Caption Preview:**\n{{ $('Parse AI Output').item.json.caption.substring(0, 300) }}...\n\n\ud83d\udcac **First Comment:**\n{{ $('Parse AI Output').item.json.first_comment }}\n\n\ud83d\uddbc\ufe0f **Carousel Image:** {{ $('Upload Image to Drive').item.json.webViewLink }}\n\n\ud83d\udcca **Content Calendar:** Updated \u2705\n\n\ud83d\udc49 **Please review and approve before publishing.**"
+      },
+      "id": "17",
+      "name": "Discord: Review Notification",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord Webhook account"
+        }
+      },
+      "notes": "Sends a rich notification to the #content-review Discord channel with a preview of the caption, the image link, and a request to review."
+    },
+    {
+      "parameters": {
+        "webhookUri": "{{ YOUR_DISCORD_WEBHOOK_URL }}",
+        "content": "=\u26a0\ufe0f **ERROR IN LINKEDIN CONTENT PIPELINE** \u26a0\ufe0f\nFailed at Node: {{ $json.error.node.name }}\nError: {{ $json.error.message }}\nTimestamp: {{ new Date().toISOString() }}"
+      },
+      "id": "18",
+      "name": "Error Handler (Discord)",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        520
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord Webhook account"
+        }
+      },
+      "notes": "Catches any pipeline error and sends a detailed alert to Discord so the team can debug."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&product=eq.cloudpulse_saas&category=in.(brand_voice,linkedin_post,icp)&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supa-li-CloudPulse",
+      "name": "Supabase (CloudPulse LI Context)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        100
+      ],
+      "notes": "Pulls brand voice, ICP, and past LinkedIn examples from GrowthAgent memory for CloudPulse."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&product=eq.synthetix_ai&category=in.(brand_voice,linkedin_post,icp)&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supa-li-Synthetix AI",
+      "name": "Supabase (Synthetix AI LI Context)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        520
+      ],
+      "notes": "Pulls brand voice, ICP, and past LinkedIn examples from GrowthAgent memory for Synthetix AI."
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "postAs": "organization",
+        "organization": "CloudPulse",
+        "text": "={{ $json.caption }}\n\n{{ $json.firstComment || '' }}",
+        "additionalFields": {}
+      },
+      "id": "node-linkedin-publish",
+      "name": "LinkedIn: Publish to CloudPulse Company Page",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1550,
+        300
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "your_linkedin_credential_id",
+          "name": "LinkedIn account"
+        }
+      },
+      "notes": "Publishes the generated caption and design to the CloudPulse company page on LinkedIn."
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-when-executed-by-another-workflow",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 7AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Ideation Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Ideation Sheet": {
+      "main": [
+        [
+          {
+            "node": "Has Pending Idea?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pending Idea?": {
+      "main": [
+        [
+          {
+            "node": "Normalize Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini: Find Trending Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Find Trending Topic": {
+      "main": [
+        [
+          {
+            "node": "Normalize Scraped Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Scraped Data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Brand Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand Router": {
+      "main": [
+        [
+          {
+            "node": "Supabase (CloudPulse LI Context)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase (Synthetix AI LI Context)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft CloudPulse Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Post Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Synthetix AI Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Post Output",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Post Output": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Generate Carousel Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Generate Carousel Image": {
+      "main": [
+        [
+          {
+            "node": "Convert Base64 to Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Base64 to Image": {
+      "main": [
+        [
+          {
+            "node": "Upload Image to Drive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Content Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image to Drive": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn: Publish to CloudPulse Company Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (CloudPulse LI Context)": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft CloudPulse Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (Synthetix AI LI Context)": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Synthetix AI Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn: Publish to CloudPulse Company Page": {
+      "main": [
+        [
+          {
+            "node": "Discord: Review Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Read Ideation Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "Error Handler (Discord)"
+  }
+}

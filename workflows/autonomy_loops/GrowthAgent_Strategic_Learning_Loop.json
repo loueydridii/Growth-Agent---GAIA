@@ -1,0 +1,161 @@
+{
+  "name": "GrowthAgent Strategic Learning Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Sunday 8 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?status=eq.published",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-opps",
+      "name": "Supabase: Fetch Last 7 Days Ops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Strategic Learning Analyst for GrowthAgent.\\n\\nYour job is to analyze the last 7 days of published content and extract structural insights.\\n\\nWhat patterns are emerging?\\nWhich topics/formats have higher priority or relevance?\\nAre there insights for Synthetix AI vs CloudPulse?\\n\\nReturn a JSON object with:\\n1. \\\"insight_title\\\" (string)\\n2. \\\"insight_body\\\" (string - deep analysis)\\n3. \\\"recommended_shift\\\" (string - what the Strategy agent should change next week)\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"7 Days Opportunities: \" + JSON.stringify($json)\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}"
+      },
+      "id": "node-gemini",
+      "name": "Gemini: Strategic Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  category: 'strategic_insight',\n  content: 'Title: ' + $json.candidates[0].content.parts[0].text.insight_title + '\\n\\nAnalysis: ' + $json.candidates[0].content.parts[0].text.insight_body + '\\n\\nRecommendation: ' + $json.candidates[0].content.parts[0].text.recommended_shift,\n  source_workflow: 'Strategic Learning Loop',\n  relevance_score: 90\n} }}"
+      },
+      "id": "node-insert",
+      "name": "Supabase: Save Insight",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Sunday 8 PM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Last 7 Days Ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Last 7 Days Ops": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Strategic Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Strategic Analysis": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save Insight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-strategic-learning-v1"
+}

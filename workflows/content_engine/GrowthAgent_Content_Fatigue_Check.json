@@ -1,0 +1,153 @@
+{
+  "name": "GrowthAgent v3 \u2014 Content Fatigue Check",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "brief",
+              "type": "string"
+            },
+            {
+              "name": "product",
+              "type": "string"
+            },
+            {
+              "name": "threshold",
+              "type": "number",
+              "default": 0.85
+            }
+          ]
+        }
+      },
+      "id": "node-input",
+      "name": "Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"models/text-embedding-004\",\n  \"content\": {\n    \"parts\": [{\n      \"text\": \"{{ $json.title }} \\n {{ $json.brief }}\"\n    }]\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-embed",
+      "name": "Gemini: Embed Opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        340,
+        300
+      ],
+      "notes": "Generates a 3072-dimensional embedding using text-embedding-004."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/rpc/search_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"query_embedding\": {{ JSON.stringify($json.embedding.values) }},\n  \"match_threshold\": {{ $('Input').item.json.threshold || 0.85 }},\n  \"match_count\": 1,\n  \"filter_product\": \"{{ $('Input').item.json.product }}\",\n  \"filter_category\": \"linkedin_post\"\n} }}",
+        "options": {}
+      },
+      "id": "node-search-memory",
+      "name": "Supabase: Search Similar Past Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        300
+      ],
+      "notes": "Searches GrowthAgent_memory for past linkedin posts that are highly similar (>0.85) to the proposed topic."
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = Array.isArray($json) ? $json : [$json];\nconst hasMatch = results.length > 0 && results[0] && results[0].similarity;\n\nif (hasMatch) {\n  return {\n    fatigue_detected: true,\n    similar_post_content: results[0].content,\n    similarity_score: results[0].similarity,\n    warning_message: `This idea is ${(results[0].similarity * 100).toFixed(1)}% similar to a previous post. Recommend a different angle or deeper technical dive.`\n  };\n}\n\nreturn {\n  fatigue_detected: false,\n  warning_message: null\n};"
+      },
+      "id": "node-parse",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Input": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Embed Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Embed Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Search Similar Past Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Search Similar Past Content": {
+      "main": [
+        [
+          {
+            "node": "Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

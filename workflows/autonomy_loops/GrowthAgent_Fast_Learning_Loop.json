@@ -1,0 +1,212 @@
+{
+  "name": "GrowthAgent v3 \u2014 Fast Learning Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 23,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Daily 11:30 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_content_performance?published_at=gte.{{ new Date(Date.now() - 24*60*60*1000).toISOString() }}&order=engagement_rate.desc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-perf",
+      "name": "Fetch 24h Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ],
+      "notes": "Fetch content published in the last 24 hours."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id || '' }}",
+              "value2": "",
+              "operation": "notEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-has-data",
+      "name": "Any Data?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Fast Learning Loop analyst for GrowthAgent. Analyze the performance of content published in the last 24 hours.\\n\\nLook for immediate patterns:\\n- Which hooks worked best?\\n- Which formats got the most engagement?\\n- Are there any surprises?\\n\\nReturn a JSON object with a concise learning summary:\\n{\\n  \\\"insight_title\\\": \\\"Short title\\\",\\n  \\\"insight_body\\\": \\\"3-4 sentences explaining what worked yesterday and why.\\\",\\n  \\\"actionable_takeaway\\\": \\\"1 sentence instructing the content agents on what to do differently tomorrow.\\\"\\n}\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"24h Performance Data:\\n\" + JSON.stringify($json)\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-analyze",
+      "name": "Gemini: Analyze 24h Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const insight = JSON.parse(cleaned);\n  \n  return {\n    insight_title: insight.insight_title || 'Daily Summary',\n    insight_body: insight.insight_body || '',\n    actionable_takeaway: insight.actionable_takeaway || '',\n    full_content: `Title: ${insight.insight_title}\\n\\nAnalysis: ${insight.insight_body}\\n\\nTakeaway: ${insight.actionable_takeaway}`\n  };\n} catch (e) {\n  return { error: e.message };\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse Insight",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"product\": \"all\",\n  \"category\": \"fast_insight\",\n  \"content\": {{ JSON.stringify($json.full_content) }},\n  \"metadata\": { \"type\": \"daily_learning\" }\n} }}",
+        "options": {}
+      },
+      "id": "node-save-memory",
+      "name": "Supabase: Save to Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        240
+      ],
+      "notes": "Saves the insight so content agents can fetch it tomorrow."
+    }
+  ],
+  "connections": {
+    "Daily 11:30 PM": {
+      "main": [
+        [
+          {
+            "node": "Fetch 24h Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 24h Performance": {
+      "main": [
+        [
+          {
+            "node": "Any Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Data?": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Analyze 24h Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Gemini: Analyze 24h Data": {
+      "main": [
+        [
+          {
+            "node": "Parse Insight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Insight": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save to Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

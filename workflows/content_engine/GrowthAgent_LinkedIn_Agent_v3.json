@@ -1,0 +1,411 @@
+{
+  "name": "GrowthAgent v3 \u2014 LinkedIn Agent (Opportunity-Driven)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Daily 7:30 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?status=eq.strategy_review&product=eq.synthetix_ai&order=priority_score.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-opp",
+      "name": "Fetch Top Strategy-Approved Opp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ],
+      "notes": "Pulls the highest-priority opportunity that has been approved by the Content Strategy Agent (status = strategy_review)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id || '' }}",
+              "value2": "",
+              "operation": "notEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-has-opp",
+      "name": "Has Approved Opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the first opportunity from the array\nconst opp = Array.isArray($json) ? $json[0] : $json;\nreturn {\n  opportunity_id: opp.id,\n  title: opp.title,\n  brief: opp.brief,\n  priority_score: opp.priority_score,\n  strategy_notes: opp.strategy_notes || '',\n  recommended_actions: opp.recommended_actions || []\n};"
+      },
+      "id": "node-extract",
+      "name": "Extract Opportunity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"status\": \"in_progress\", \"assigned_agent\": \"linkedin_agent\" } }}",
+        "options": {}
+      },
+      "id": "node-mark-progress",
+      "name": "Supabase: Mark In Progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&product=in.(synthetix_ai,all)&category=in.(brand_voice,linkedin_post,icp)&limit=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-memory",
+      "name": "Fetch Brand Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        240
+      ],
+      "notes": "Pull Synthetix AI brand voice, ICP, and past LinkedIn post examples from memory.",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Lead Content Engineer for Synthetix AI by CloudPulse. Draft premium, deeply engaging LinkedIn posts targeting sports coaches, high-performance directors, sports scientists, physiotherapists, and athletes.\\n\\nFORMATTING RULES:\\n- Start with a bold, punchy 6-10 word hook.\\n- Keep paragraphs short (1-2 sentences max).\\n- Use strategic emojis but do not overuse them (max 6-8 per post).\\n- End with 8-10 relevant hashtags.\\n\\nBRAND CONTEXT \u2014 Synthetix AI:\\n- Tone: High-performance, technical, honest, athletic, and understated.\\n- Product: Camera-only, markerless movement analysis platform. Upload a phone-shot training clip, tag the athlete, get a full biomechanical report in ~2 minutes. No wearable, no lab, no markers.\\n- Features: Annotated video, Coach View (availability, risk, confidence), Clinical View (joint angles, symmetry), Movement Assessment Tool (MAT) scoring, 3D skeletal preview (advisory/beta), dual-athlete comparison, downloadable report.\\n- STRICT RULES:\\n  1. NEVER overclaim clinical value. We surface movement indicators; we do NOT diagnose injuries. Use 'advisory' or 'movement insight' \u2014 never 'diagnosis'.\\n  2. NEVER use hype language ('revolutionary', 'game-changing', 'AI-powered').\\n  3. Do NOT claim wearable integration is live (roadmap). Do NOT claim real-time analysis (sessions take ~2 min).\\n  4. Trust is built through specificity and understatement.\\n\\nBRAND MEMORY:\\n\" + JSON.stringify($json) + \"\\n\\nOUTPUT FORMAT \u2014 Return ONLY a valid JSON object:\\n{\\n  \\\"caption\\\": \\\"The full LinkedIn caption text with hook in **bold** at the start\\\",\\n  \\\"first_comment\\\": \\\"A CTA or discussion-starter comment\\\",\\n  \\\"hook_type\\\": \\\"contrarian\\\" | \\\"data\\\" | \\\"story\\\" | \\\"question\\\" | \\\"news\\\",\\n  \\\"carousel_visual_prompt\\\": \\\"A detailed prompt (100+ words) to generate a premium LinkedIn carousel cover slide (1200x1500px portrait).\\\"\\n}\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Topic: \" + $('Extract Opportunity').item.json.title + \"\\nBrief: \" + $('Extract Opportunity').item.json.brief + \"\\nStrategy Notes: \" + $('Extract Opportunity').item.json.strategy_notes + \"\\n\\nGenerate a LinkedIn post for the Synthetix AI company page.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.35,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-draft",
+      "name": "Gemini: Draft LinkedIn Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        240
+      ],
+      "notes": "Creative tier. Uses Gemini Key #2 to spread load."
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const post = JSON.parse(cleaned);\n  const opp = $('Extract Opportunity').item.json;\n  \n  return {\n    caption: post.caption || '',\n    first_comment: post.first_comment || '',\n    hook_type: post.hook_type || 'news',\n    carousel_visual_prompt: post.carousel_visual_prompt || '',\n    opportunity_id: opp.opportunity_id,\n    title: opp.title,\n    draft_content: post.caption + '\\n\\n---\\nFirst Comment: ' + post.first_comment\n  };\n} catch (e) {\n  return { error: e.message, raw: JSON.stringify($json) };\n}"
+      },
+      "id": "node-parse-draft",
+      "name": "Parse Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/rpc/log_hitl_draft",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  p_agent_name: \"LinkedIn Content Agent v3\",\n  p_brand_tag: \"Synthetix AI\",\n  p_category: \"linkedin_post\",\n  p_draft_content: $json.draft_content,\n  p_target_channel: \"LinkedIn Page\"\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "node-log-draft",
+      "name": "Supabase: Log HITL Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        240
+      ],
+      "notes": "Store the draft in GrowthAgent_drafts for HITL approval."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $('Extract Opportunity').item.json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  status: \"drafted\",\n  drafted_at: new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "node-mark-drafted",
+      "name": "Supabase: Mark Drafted",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2040,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "executeWorkflow",
+        "workflowId": "={{ /* Brand Guardian workflow ID - set after import */ '' }}",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowInputs": {
+          "draft_id": "={{ typeof $('Supabase: Log HITL Draft').item.json === 'object' ? ($('Supabase: Log HITL Draft').item.json.data || $('Supabase: Log HITL Draft').item.json) : $('Supabase: Log HITL Draft').item.json }}",
+          "draft_content": "={{ $('Parse Draft').item.json.draft_content }}",
+          "brand": "Synthetix AI",
+          "opportunity_id": "={{ $('Extract Opportunity').item.json.opportunity_id }}"
+        }
+      },
+      "id": "node-call-guardian",
+      "name": "Execute: Brand Guardian",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        2260,
+        240
+      ],
+      "notes": "Calls the Brand Guardian sub-workflow. Set the workflowId after importing GrowthAgent_Brand_Guardian.json into n8n."
+    }
+  ],
+  "connections": {
+    "Daily 7:30 AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch Top Strategy-Approved Opp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Top Strategy-Approved Opp": {
+      "main": [
+        [
+          {
+            "node": "Has Approved Opportunity?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Approved Opportunity?": {
+      "main": [
+        [
+          {
+            "node": "Extract Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Extract Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark In Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Mark In Progress": {
+      "main": [
+        [
+          {
+            "node": "Fetch Brand Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Brand Memory": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft LinkedIn Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft LinkedIn Post": {
+      "main": [
+        [
+          {
+            "node": "Parse Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Draft": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log HITL Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log HITL Draft": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Drafted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Mark Drafted": {
+      "main": [
+        [
+          {
+            "node": "Execute: Brand Guardian",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

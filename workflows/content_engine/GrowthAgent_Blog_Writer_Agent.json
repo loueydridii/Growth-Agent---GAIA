@@ -1,0 +1,281 @@
+{
+  "name": "GrowthAgent Blog Writer Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every 4 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?status=eq.queued&opportunity_type=eq.blog_article&order=priority_score.desc&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-opp",
+      "name": "Fetch Blog Opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Array.isArray($json) ? $json.length > 0 : Object.keys($json).length > 0 }}",
+              "value2": true,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if",
+      "name": "Has Blog Opp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.PERPLEXITY_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"llama-3.1-sonar-small-128k-online\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"text\": \"You are a technical research assistant. Your job is to gather accurate, up-to-date facts, statistics, and citations for a blog article. Output a comprehensive research brief.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"I am writing an article titled: '\" + $json.title + \"'. The brief is: '\" + $json.brief + \"'. Gather the most recent and authoritative data to support this topic.\"\n    }\n  ]\n} }}"
+      },
+      "id": "node-perplexity",
+      "name": "Perplexity: Deep Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        200
+      ],
+      "notes": "Gather technical info before writing"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Lead Technical Writer for Synthetix AI and CloudPulse. Write a long-form blog article based on the provided opportunity and research data.\\n\\nRules:\\n- Output in standard Markdown.\\n- Include an engaging title as an H1.\\n- Use H2s and H3s for structure.\\n- Ensure high readability but retain technical depth.\\n- If strategy notes are provided, follow those instructions carefully.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Title: \" + $('Has Blog Opp?').item.json.title + \"\\nBrief: \" + $('Has Blog Opp?').item.json.brief + \"\\nStrategy Notes: \" + ($('Has Blog Opp?').item.json.strategy_notes || 'none') + \"\\n\\nResearch Data:\\n\" + $json.choices[0].message.content\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.6\n  }\n} }}"
+      },
+      "id": "node-gemini",
+      "name": "Gemini: Draft Blog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_drafts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  agent_name: 'Blog Writer Agent',\n  brand_tag: $('Has Blog Opp?').item.json.product === 'synthetix_ai' ? 'Synthetix AI' : 'CloudPulse',\n  category: 'blog_article',\n  target_channel: 'Blog',\n  draft_content: $json.candidates[0].content.parts[0].text,\n  opportunity_id: $('Has Blog Opp?').item.json.id,\n  status: 'drafted'\n} }}"
+      },
+      "id": "node-insert-draft",
+      "name": "Supabase: Save Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.' + $('Has Blog Opp?').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"status\": \"drafted\",\n  \"assigned_agent\": \"Blog Writer\",\n  \"drafted_at\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "node-update-opp",
+      "name": "Supabase: Mark Opp Drafted",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 4 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Blog Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Blog Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Has Blog Opp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Blog Opp?": {
+      "main": [
+        [
+          {
+            "node": "Perplexity: Deep Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity: Deep Research": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Draft Blog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Draft Blog": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Save Draft": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Opp Drafted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-blog-writer-v1"
+}

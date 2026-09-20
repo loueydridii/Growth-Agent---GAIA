@@ -1,0 +1,134 @@
+{
+  "name": "GrowthAgent \u2014 Team Update Ping (Discord Weekly)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-monday",
+      "name": "Every Monday 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "\ud83e\udd16 **GrowthAgent \u2014 Weekly Knowledge Update**\n\nHey team! It's Monday. I need your product updates so I can keep all agents up to date before this week's content runs.\n\n**Please reply to this message** with the format:\n```\n[Product: CloudPulse / Synthetix AI / Aura Commerce]\n[Update: what changed this week \u2014 features, bugs fixed, new deals, client feedback]\n```\n\n**Example:**\n```\nProduct: Synthetix AI\nUpdate: We fixed the low-light video detection bug. Multi-camera v1 is in QA. First pilot with Cologne FC started.\n```\n\nAll updates go directly into GrowthAgent's memory and will shape this week's outreach emails, LinkedIn posts, and blog content. \ud83e\udde0",
+        "options": {}
+      },
+      "id": "node-discord-ping",
+      "name": "Discord: Weekly Ping to Team",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "\ud83d\udcdd **To submit your update directly, use this link:**\nhttps://YOUR_N8N_INSTANCE/webhook-test/GrowthAgent-jr-team-update\n\nOr just reply in this thread \u2014 TeamLead will manually log updates via the form until the Discord bot is live.",
+        "options": {}
+      },
+      "id": "node-discord-form-link",
+      "name": "Discord: Share Submit Link",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every Monday 9am": {
+      "main": [
+        [
+          {
+            "node": "Discord: Weekly Ping to Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord: Weekly Ping to Team": {
+      "main": [
+        [
+          {
+            "node": "Discord: Share Submit Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Discord: Weekly Ping to Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

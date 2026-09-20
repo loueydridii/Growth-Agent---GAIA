@@ -1,0 +1,273 @@
+{
+  "name": "GrowthAgent \u2014 Content Strategist Agent (Layer 3)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "GrowthAgent-jr-strategist",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-strategist-trigger",
+      "name": "Webhook: /GrowthAgent-jr-strategist",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "schedule-strategist-trigger",
+      "name": "Schedule: Sunday 6:00 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?product=in.(all,cloudpulse_saas,synthetix_ai)&category=in.(brand_voice,icp)&select=content,product,subcategory&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": false,
+        "options": {}
+      },
+      "id": "supabase-fetch-content-history",
+      "name": "Supabase: Fetch Brand Voice & History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": \"You are the GrowthAgent Content Strategist Specialist Agent (Layer 3). Using company memory context: \" + JSON.stringify($json) + \"\\n\\nCreate an executive 7-Day Content Calendar Plan for both CloudPulse and Synthetix AI. Provide:\\n1. Monday - Wednesday - Friday LinkedIn Post Angles\\n2. Tuesday SEO Technical Blog Title & Primary Keyword\\n3. Thursday Executive Newsletter Theme\\n4. Core CTA & Target Persona for each piece.\\nFormat cleanly in markdown so TeamLead and intern can review and approve it via Discord.\" } ] } ], \"generationConfig\": { \"temperature\": 0.3, \"maxOutputTokens\": 900 } } }}",
+        "options": {}
+      },
+      "id": "gemini-calendar-architect",
+      "name": "Gemini 2.5 Flash: Architect Content Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_agent_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"agent_name\": \"Content Strategist Agent (Layer 3)\", \"task_input\": \"Generate 7-Day Content Roadmap\", \"task_output\": $json.candidates[0].content.parts[0].text, \"status\": \"APPROVED\", \"product\": \"CloudPulse & Synthetix AI\", \"execution_ms\": 3100 } }}",
+        "options": {}
+      },
+      "id": "supabase-log-strategist",
+      "name": "Supabase: Log Content Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": \"\ud83d\udcc5 **GrowthAgent \u2014 Weekly GTM Content Calendar (Layer 3)**\\n\\n\" + $('Gemini 2.5 Flash: Architect Content Plan').item.json.candidates[0].content.parts[0].text } }}",
+        "options": {}
+      },
+      "id": "discord-post-content-calendar",
+      "name": "Discord: Post Content Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "when-executed-by-another-workflow-node",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: /GrowthAgent-jr-strategist": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Brand Voice & History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Sunday 6:00 PM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Brand Voice & History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Brand Voice & History": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash: Architect Content Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash: Architect Content Plan": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Content Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Content Plan": {
+      "main": [
+        [
+          {
+            "node": "Discord: Post Content Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Brand Voice & History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versioGrowthAgent": "e1f2a3b4-c5d6-7890-1234-56789abcdef2",
+  "triggerCount": 2,
+  "tags": [
+    {
+      "name": "GrowthAgent GEOS"
+    },
+    {
+      "name": "Layer 3 Specialist"
+    }
+  ]
+}

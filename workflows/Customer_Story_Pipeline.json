@@ -1,0 +1,326 @@
+{
+  "name": "Customer Story Pipeline (V2 \u2014 Supabase Memory)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "CRM-pilot-won",
+        "options": {}
+      },
+      "id": "1",
+      "name": "CRM Webhook (pilot_won)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.body.data.stage }}",
+              "value2": "pilot_won"
+            }
+          ]
+        }
+      },
+      "id": "2",
+      "name": "Idempotency Check & Stage Verify",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "notes": "Ensures we only process 'pilot_won' and deduplicates multiple webhook fires."
+    },
+    {
+      "parameters": {
+        "project": "GTM",
+        "issueType": "Task",
+        "summary": "=Customer Story Brief: {{ $json.body.data.company_name }}",
+        "description": "=New pilot won! \nCompany: {{ $json.body.data.company_name }}\nContact: {{ $json.body.data.primary_contact }}\nValue: {{ $json.body.data.deal_value }}\n\nPlease schedule the customer interview."
+      },
+      "id": "3",
+      "name": "Create Jira Brief",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        700,
+        200
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "{{ N8N_JIRA_CREDENTIAL_ID }}",
+          "name": "Jira Software Cloud account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "content": "You are a B2B marketing expert. Create a 3-part Loom video script outline based on this customer win."
+            },
+            {
+              "role": "user",
+              "content": "=Company: {{ $('CRM Webhook (pilot_won)').item.json.body.data.company_name }}\nUse Case: {{ $('CRM Webhook (pilot_won)').item.json.body.data.use_case }}"
+            }
+          ]
+        }
+      },
+      "id": "4",
+      "name": "Generate Loom Script (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        200
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "{{ N8N_OPENAI_CREDENTIAL_ID }}",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "content": "You are a B2B copywriter. Draft a LinkedIn post announcing a new pilot win. Do not use hashtags. Keep it under 100 words."
+            },
+            {
+              "role": "user",
+              "content": "=Company: {{ $('CRM Webhook (pilot_won)').item.json.body.data.company_name }}"
+            }
+          ]
+        },
+        "responseFormat": "json"
+      },
+      "id": "5",
+      "name": "Draft LinkedIn Post (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai_credentials",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "channelId": "{{ DISCORD_GTM_STORIES_CHANNEL_ID }}",
+        "content": "=\ud83d\udea8 **NEW PILOT WON** \ud83d\udea8\n**Company:** {{ $('CRM Webhook (pilot_won)').item.json.body.data.company_name }}\n\nJira Task Created: {{ $('Create Jira Brief').item.json.key }}\n\n**Loom Script Draft:**\n{{ $('Generate Loom Script (OpenAI)').item.json.choices[0].message.content }}\n\n**LinkedIn Draft:**\n{{ $('Draft LinkedIn Post (OpenAI)').item.json.choices[0].message.content }}"
+      },
+      "id": "6",
+      "name": "Discord Alert (#gtm-stories)",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        200
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "{{ N8N_DISCORD_CREDENTIAL_ID }}",
+          "name": "Discord Webhook account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "channelId": "{{ DISCORD_ERROR_CHANNEL_ID }}",
+        "content": "=\u26a0\ufe0f **ERROR IN CUSTOMER STORY PIPELINE** \u26a0\ufe0f\nFailed at Node: {{ $json.error.node.name }}\nError Message: {{ $json.error.message }}"
+      },
+      "id": "7",
+      "name": "Error Handler (Discord)",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "discord_credentials",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory?select=content&category=in.(brand_voice,product_guide,blog_article,icp)&limit=15",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "=YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supa-blog",
+      "name": "Supabase (Blog Context)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        200
+      ],
+      "notes": "Pulls brand voice, product guides, ICPs, and past blog examples from GrowthAgent memory."
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-when-executed-by-another-workflow",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "CRM Webhook (pilot_won)": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Check & Stage Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotency Check & Stage Verify": {
+      "main": [
+        [
+          {
+            "node": "Supabase (Blog Context)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Jira Brief": {
+      "main": [
+        [
+          {
+            "node": "Generate Loom Script (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Loom Script (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Draft LinkedIn Post (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft LinkedIn Post (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Discord Alert (#gtm-stories)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler (Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (Blog Context)": {
+      "main": [
+        [
+          {
+            "node": "Create Jira Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Check & Stage Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "name": "GrowthAgent Pruning Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtDayOfMonth": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "1st of Month 9AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?status=eq.published",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-opps",
+      "name": "Supabase: Fetch 30 Days Ops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Pruning Loop Analyst for GrowthAgent.\\n\\nAnalyze the last 30 days of published content.\\GrowthAgententify what we should STOP doing (underperforming topics, saturated angles).\\nCategorize your findings into:\\n1. Do More (rising performance)\\n2. Do Less (declining performance)\\n3. Stop (consistent underperformance)\\n4. Test (new angles not yet tried)\\n\\nReturn standard markdown format suitable for a Discord message.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"30 Days Opportunities: \" + JSON.stringify($json)\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2\n  }\n} }}"
+      },
+      "id": "node-gemini",
+      "name": "Gemini: Pruning Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  category: 'monthly_review',\n  content: $json.candidates[0].content.parts[0].text,\n  source_workflow: 'Pruning Loop',\n  relevance_score: 95\n} }}"
+      },
+      "id": "node-insert",
+      "name": "Supabase: Save Monthly Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  content: '\u2702\ufe0f **Monthly Pruning Report is Ready!**\\n\\n' + $('Gemini: Pruning Analysis').item.json.candidates[0].content.parts[0].text\n} }}"
+      },
+      "id": "node-discord",
+      "name": "Discord: Pruning Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "1st of Month 9AM": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch 30 Days Ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch 30 Days Ops": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Pruning Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Pruning Analysis": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save Monthly Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Pruning Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-pruning-loop-v1"
+}

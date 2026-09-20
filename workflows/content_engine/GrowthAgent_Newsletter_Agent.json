@@ -1,0 +1,267 @@
+{
+  "name": "GrowthAgent - Newsletter Agent (Brevo + Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Monday 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/rpc/search_memory",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query_embedding\": [],\n  \"match_threshold\": 0.0,\n  \"match_count\": 5,\n  \"filter_category\": \"blog\"\n}",
+        "options": {}
+      },
+      "id": "node-supabase-blog",
+      "name": "Fetch Recent Content from Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are GrowthAgent, writing the weekly CloudPulse & Synthetix AI newsletter.\\nDraft a compelling HTML newsletter summarizing our recent milestones in eBPF telemetrys, PT clinic RPM, and agentic LLM evaluation for sports teams.\\nOutput valid JSON with keys: 'subject', 'previewText', 'htmlContent' (clean responsive HTML suitable for Brevo).\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Create this week's newsletter using our recent content.\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.4\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-gemini-newsletter",
+      "name": "Gemini 2.5 Flash (Draft Newsletter HTML)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-subject",
+              "name": "subject",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).subject }}",
+              "type": "string"
+            },
+            {
+              "id": "parse-preview",
+              "name": "previewText",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).previewText }}",
+              "type": "string"
+            },
+            {
+              "id": "parse-html",
+              "name": "htmlContent",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).htmlContent }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-nl",
+      "name": "Parse Newsletter Draft",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/emailCampaigns",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "YOUR_BREVO_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sender\": { \"name\": \"CloudPulse\", \"email\": \"hello@yourcompany.com\" },\n  \"name\": \"Weekly Update - {{ $json.subject }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"htmlContent\": \"{{ $json.htmlContent.replace(/\"/g, '\\\\' + '\"') }}\"\n}",
+        "options": {}
+      },
+      "id": "node-brevo-campaign",
+      "name": "Brevo: Create Email Campaign Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        300
+      ],
+      "notes": "Replace YOUR_BREVO_API_KEY with your actual Brevo API key."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"\ud83d\udcf0 **GrowthAgent Newsletter Agent** | New Brevo Campaign Draft Created!\\n**Subject:** {{ $json.subject }}\\n**Preview:** {{ $json.previewText }}\\n\\nCheck your Brevo dashboard to approve & send!\"\n}",
+        "options": {}
+      },
+      "id": "node-discord-nl",
+      "name": "Discord: Share Brevo Draft Preview",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-when-executed-by-another-workflow",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Monday 9AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Content from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Content from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash (Draft Newsletter HTML)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash (Draft Newsletter HTML)": {
+      "main": [
+        [
+          {
+            "node": "Parse Newsletter Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Newsletter Draft": {
+      "main": [
+        [
+          {
+            "node": "Brevo: Create Email Campaign Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brevo: Create Email Campaign Draft": {
+      "main": [
+        [
+          {
+            "node": "Discord: Share Brevo Draft Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Content from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

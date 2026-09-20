@@ -1,0 +1,437 @@
+{
+  "name": "GrowthAgent v3 \u2014 Opportunity Qualifier",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals?status=eq.new&order=relevance_score.desc&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-signals",
+      "name": "Fetch New Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean($json.id) }}",
+              "value2": true,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-has-signals",
+      "name": "Any New Signals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $('Fetch New Signals').all().filter(i => i.json && i.json.id);\nreturn {\n  signal_count: allItems.length,\n  signals: allItems.map(i => ({\n    id: i.json.id,\n    title: i.json.title,\n    summary: i.json.summary,\n    relevance_score: i.json.relevance_score,\n    source_credibility: i.json.source_credibility\n  }))\n};"
+      },
+      "id": "node-aggregate",
+      "name": "Aggregate Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Opportunity Qualifier for all our brands (Synthetix AI, CloudPulse, Aura Commerce).\\n\\nGiven these new intelligence signals, determine what content opportunities each creates. Consider:\\n- Is this a content gap we should fill? (LinkedIn post, blog, carousel, FAQ)\\n- Is this a GEO/AEO opportunity? (Write content that AI search engines will cite)\\n- Is this a competitive response? (Competitor made a move we should counter)\\n- Is this a B2B opportunity? (Relevant to potential customers)\\n- Should this go in our weekly newsletter?\\n\\nFor each signal that creates a real opportunity, return a JSON array of opportunity objects:\\n[{\\n  \\\"signal_id\\\": \\\"uuid of the source signal\\\",\\n  \\\"opportunity_type\\\": \\\"linkedin_post\\\" | \\\"blog_article\\\" | \\\"carousel\\\" | \\\"comparison_page\\\" | \\\"faq_schema\\\" | \\\"newsletter_item\\\",\\n  \\\"title\\\": \\\"concise opportunity title (or headline for newsletter)\\\",\\n  \\\"brief\\\": \\\"2-3 sentence description of what to create and why (or the actual body text for a newsletter item)\\\",\\n  \\\"priority_score\\\": 0-100 (based on timeliness + relevance + gap size),\\n  \\\"product\\\": \\\"synthetix_ai\\\" | \\\"cloudpulse_saas\\\" | \\\"aura_commerce\\\",\\n  \\\"section_type\\\": \\\"only if newsletter_item, choose: sports_science, research, product, founder, startup_ecosystem, regulatory\\\"\\n}]\\n\\nRules:\\n- A single signal can create MULTIPLE opportunities.\\n- Dismiss signals with relevance_score < 40.\\n- If no opportunities exist, return an empty array: []\\n\\nReturn ONLY the JSON array.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Signals:\\n\" + JSON.stringify($json.signals)\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.15,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-qualify",
+      "name": "Gemini: Qualify Opportunities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const opportunities = JSON.parse(cleaned);\n  \n  if (!Array.isArray(opportunities) || opportunities.length === 0) {\n    return [{ empty: true }];\n  }\n  \n  return opportunities.map(o => ({\n    signal_id: o.signal_id,\n    product: 'synthetix_ai',\n    opportunity_type: o.opportunity_type || 'linkedin_post',\n    title: o.title,\n    brief: o.brief,\n    priority_score: Math.min(100, Math.max(0, o.priority_score || 50)),\n    empty: false\n  }));\n} catch (e) {\n  return [{ empty: true, error: e.message }];\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.empty }}",
+              "value2": true,
+              "operation": "notEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-has-opps",
+      "name": "Has Opportunities?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"signal_id\": $json.signal_id,\n  \"product\": $json.product,\n  \"opportunity_type\": $json.opportunity_type,\n  \"title\": $json.title,\n  \"brief\": $json.brief,\n  \"priority_score\": $json.priority_score\n} }}",
+        "options": {}
+      },
+      "id": "node-supabase-insert",
+      "name": "Supabase: Insert Opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1580,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals?id=eq.{{ $json.signal_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"status\": \"qualified\" } }}",
+        "options": {}
+      },
+      "id": "node-mark-qualified",
+      "name": "Mark Signal Qualified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83c\udfaf **GrowthAgent \u2014 New Opportunity Qualified!**\n\n**{{ $json.title }}** (Priority: {{ $json.priority_score }}/100)\n> {{ $json.brief }}\n\nType `!GrowthAgent opportunities` to see the full queue.",
+        "options": {}
+      },
+      "id": "node-discord-summary",
+      "name": "Discord: Queue Summary",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        180
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.opportunity_type }}",
+              "value2": "newsletter_item",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if-newsletter",
+      "name": "Is Newsletter Item?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_newsletter_backlog",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  product: $json.product || 'synthetix_ai',\n  section_type: $json.section_type || 'research',\n  headline: $json.title,\n  body: $json.brief,\n  source_signal_id: $json.signal_id,\n  relevance_score: $json.priority_score\n} }}"
+      },
+      "id": "node-insert-backlog",
+      "name": "Supabase: Insert Backlog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch New Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch New Signals": {
+      "main": [
+        [
+          {
+            "node": "Any New Signals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Signals?": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Signals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Aggregate Signals": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Qualify Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Qualify Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Parse Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Has Opportunities?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Opportunities?": {
+      "main": [
+        [
+          {
+            "node": "Is Newsletter Item?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Supabase: Insert Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Mark Signal Qualified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Signal Qualified": {
+      "main": [
+        [
+          {
+            "node": "Discord: Queue Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Newsletter Item?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Backlog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Insert Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Backlog": {
+      "main": [
+        [
+          {
+            "node": "Mark Signal Qualified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

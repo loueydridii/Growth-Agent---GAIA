@@ -1,0 +1,323 @@
+{
+  "name": "GrowthAgent v3 \u2014 Content Strategy Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every 3 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?status=eq.queued&product=eq.synthetix_ai&order=priority_score.desc&limit=3",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-opps",
+      "name": "Fetch Top Opportunities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id || '' }}",
+              "value2": "",
+              "operation": "notEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-has-opps",
+      "name": "Any Queued?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_content_performance?product=eq.synthetix_ai&order=published_at.desc&limit=10&select=topic,hook_type,format,impressions,engagement_rate,published_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-fetch-perf",
+      "name": "Fetch Recent Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        240
+      ],
+      "notes": "Pull last 10 published Synthetix AI content pieces and their performance data for the strategy agent to consider.",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Content Strategy Agent for Synthetix AI and CloudPulse.\\n\\nYour role is to decide WHAT content should be created and WHY. You consider:\\n- Current opportunities in the queue\\n- Recent content performance (what worked)\\n- Active A/B experiments (if any)\\n\\nFor each opportunity you approve, provide:\\n1. recommended_actions: array of content types to create\\n2. strategy_notes: WHY this should be created now. IF there is an active experiment, you MUST assign the opportunity to either the 'control' or 'test' variant and specify the instructions.\\n3. priority_override: adjusted priority score (0-100)\\n4. hook_suggestion: a suggested angle\\n\\nReturn JSON.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Opportunities:\\n\" + JSON.stringify($('Fetch Top Opportunities').item.json) + \"\\n\\nRecent Performance:\\n\" + JSON.stringify($('Fetch Recent Performance').item.json || []) + \"\\n\\nActive Experiments:\\n\" + JSON.stringify($('Fetch Active Experiments').item.json || [])\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-strategy",
+      "name": "Gemini: Strategic Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        240
+      ],
+      "notes": "Uses Claude (reasoning tier) for strategic decisions. This is the brain that decides WHAT content to create and WHY."
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const decisions = JSON.parse(cleaned);\n  \n  return decisions.filter(d => d.decision === 'approve').map(d => ({\n    opportunity_id: d.opportunity_id,\n    recommended_actions: JSON.stringify(d.recommended_actions || []),\n    strategy_notes: d.strategy_notes || '',\n    priority_override: d.priority_override || 50,\n    hook_suggestion: d.hook_suggestion || 'news'\n  }));\n} catch (e) {\n  return [];\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse Approved Decisions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_opportunities?id=eq.{{ $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  status: \"strategy_review\",\n  recommended_actions: $json.recommended_actions ? JSON.parse($json.recommended_actions) : [],\n  strategy_notes: $json.strategy_notes,\n  priority_score: $json.priority_override,\n  strategy_at: new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "node-update-opp",
+      "name": "Supabase: Update Opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $('Fetch Top Opportunities').all().filter(i => i.json && i.json.id);\nreturn {\n  opportunity_count: allItems.length,\n  opportunities: allItems.map(i => ({\n    id: i.json.id,\n    title: i.json.title,\n    brief: i.json.brief,\n    priority_score: i.json.priority_score\n  }))\n};"
+      },
+      "id": "node-aggregate",
+      "name": "Aggregate Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_experiments?status=eq.running",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-fetch-exp",
+      "name": "Fetch Active Experiments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Every 3 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Top Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Top Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Any Queued?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Queued?": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetch Recent Performance": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Approved Decisions": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Update Opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Strategic Decision": {
+      "main": [
+        [
+          {
+            "node": "Parse Approved Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Experiments": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Strategic Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

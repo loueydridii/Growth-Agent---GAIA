@@ -1,0 +1,188 @@
+{
+  "name": "GrowthAgent - Trend Research Agent (Google News + Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "node-trend-schedule",
+      "name": "Daily 6AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=smart+insoles+OR+remote+patient+monitoring+OR+markerless+motion+capture&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "node-rss",
+      "name": "RSS Feed: Healthcare & Sports AI News",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are GrowthAgent Trend Analyst. Review these news items and pick the top 2 trends relevant to CloudPulse (eBPF telemetrys, RPM for PT clinics) and Synthetix AI (agentic LLM evaluation for football/sports).\\nReturn JSON array of objects with keys: 'topic', 'brand', 'angle', 'status' (set status to 'pending').\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify(($json.title || \"\") + \" - \" + ($json.link || \"\")) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.3\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-gemini-trend",
+      "name": "Gemini 2.5 Flash: Extract Top 2 Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-trends",
+              "name": "trends",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text) }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-trend",
+      "name": "Parse Trends",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"\ud83d\udcc8 **GrowthAgent Trend Research Agent** | Morning scan complete! Found high-signal topics for CloudPulse & Synthetix AI. Added to Content Ideation sheet for 7AM LinkedIn publish queue.\"\n}",
+        "options": {}
+      },
+      "id": "node-trend-discord",
+      "name": "Discord: Announce New Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message",
+              "type": "string"
+            },
+            {
+              "name": "brand",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-when-executed-by-another-workflow",
+      "name": "When executed by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 6AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Feed: Healthcare & Sports AI News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Feed: Healthcare & Sports AI News": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash: Extract Top 2 Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash: Extract Top 2 Trends": {
+      "main": [
+        [
+          {
+            "node": "Parse Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Trends": {
+      "main": [
+        [
+          {
+            "node": "Discord: Announce New Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When executed by another workflow": {
+      "main": [
+        [
+          {
+            "node": "RSS Feed: Healthcare & Sports AI News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,417 @@
+{
+  "name": "GrowthAgent Competitor Scout",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every 12 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { query: 'Arize AI new product launch press release', category: 'product_launch', product: 'synthetix_ai', competitor: 'Arize AI' },\n  { query: 'LangSmith wearable tech updates news', category: 'product_launch', product: 'synthetix_ai', competitor: 'LangSmith' },\n  { query: 'Dynatrace sensor insoles reviews complaints', category: 'market_feedback', product: 'synthetix_ai', competitor: 'Dynatrace' },\n  { query: 'New Relic pressure mapping clinical research', category: 'clinical_research', product: 'cloudpulse_saas', competitor: 'New Relic' },\n  { query: 'Datadog biomechanics software updates', category: 'product_launch', product: 'synthetix_ai', competitor: 'Datadog' }\n];"
+      },
+      "id": "node-queries",
+      "name": "Define Research Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ],
+      "notes": "5 research queries focused on Synthetix AI's domain: agentic LLM evaluation, injury prediction, sports biomechanics, ACL prevention, and sports tech industry."
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-loop",
+      "name": "Loop Queries",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 12,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Wait 12s (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        700,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_PERPLEXITY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"sonar-pro\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a sports technology research scout. Find the most recent, specific developments from the last 72 hours. Focus on concrete events: new research papers, product launches, funding rounds, partnerships, injuries to high-profile athletes, or regulatory changes. Be specific with names, dates, and sources.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.query\n    }\n  ],\n  \"temperature\": 0.1\n} }}",
+        "options": {}
+      },
+      "id": "node-perplexity",
+      "name": "Perplexity: Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        280
+      ],
+      "notes": "Search Perplexity for competitor intelligence"
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "node-wait-2",
+      "name": "Wait 15s (Gemini Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are the Intelligence Scout for Synthetix AI and CloudPulse.\\n\\nEvaluate the provided research data and extract concrete signals.\\n\\nCRITICAL VERIFICATION LAYER:\\nYou MUST evaluate the credibility of the information. Do not forward speculative AI hallucinations.\\nFor each signal, you must provide:\\n- source_credibility: MUST be exactly one of ['peer_reviewed', 'institutional', 'news_major', 'social', 'speculative']\\n- evidence_level: MUST be exactly one of ['verified', 'claimed', 'rumor']\\n\\nReturn a JSON array:\\n[{\\n  \\\"title\\\": \\\"concise signal title\\\",\\n  \\\"summary\\\": \\\"2-3 sentences explaining the signal\\\",\\n  \\\"source\\\": \\\"url or entity\\\",\\n  \\\"product\\\": \\\"synthetix_ai\\\" | \\\"cloudpulse_saas\\\" | \\\"aura_commerce\\\",\\n  \\\"signal_type\\\": \\\"market_trend\\\" | \\\"competitor_move\\\" | \\\"research_study\\\",\\n  \\\"relevance_score\\\": 0-100,\\n  \\\"confidence_score\\\": 0-100,\\n  \\\"source_credibility\\\": \\\"...\\\",\\n  \\\"evidence_level\\\": \\\"...\\\"\\n}]\\n\\nReturn ONLY the JSON array. Dismiss any signal that is just general industry fluff.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Research Data:\\n\" + $json.choices[0].message.content\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-evaluate",
+      "name": "Gemini: Evaluate Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        280
+      ],
+      "notes": "Fast tier: evaluates Perplexity research and extracts structured signals with relevance scores, credibility, and evidence levels."
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const signals = JSON.parse(cleaned);\n  const query = $('Loop Queries').item.json.query;\n  const category = $('Loop Queries').item.json.category;\n  const product = $('Loop Queries').item.json.product || 'synthetix_ai';\n  const competitor = $('Loop Queries').item.json.competitor;\n  \n  if (!Array.isArray(signals) || signals.length === 0) {\n    return { empty: true, query };\n  }\n  \n  return signals.map(s => ({\n    signal_type: 'competitor_intel',\n    source: 'perplexity',\n    source_url: null,\n    product: product,\n    title: `[${competitor}] ${s.title || 'Untitled signal'}`,\n    summary: s.summary || '',\n    raw_data: JSON.stringify({ query, category, competitor, suggested_action: s.suggested_action }),\n    source_credibility: s.source_credibility || 'unknown',\n    evidence_level: s.evidence_level || 'unverified',\n    relevance_score: Math.min(100, Math.max(0, s.relevance_score || 50)),\n    confidence_score: Math.min(100, Math.max(0, s.confidence_score || 50))\n  }));\n} catch (e) {\n  return { empty: true, error: e.message };\n}"
+      },
+      "id": "node-parse",
+      "name": "Parse Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        280
+      ],
+      "notes": "Parses the Gemini JSON response into individual signal objects ready for Supabase insertion."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.empty }}",
+              "value2": true,
+              "operation": "notEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-has-signals",
+      "name": "Has Signals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"signal_type\": $json.signal_type,\n  \"source\": $json.source,\n  \"source_url\": $json.source_url,\n  \"product\": $json.product,\n  \"title\": $json.title,\n  \"summary\": $json.summary,\n  \"raw_data\": $json.raw_data,\n  \"source_credibility\": $json.source_credibility,\n  \"evidence_level\": $json.evidence_level,\n  \"relevance_score\": $json.relevance_score,\n  \"confidence_score\": $json.confidence_score\n} }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "id": "node-supabase-insert",
+      "name": "Supabase: Insert Signal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.relevance_score }}",
+              "value2": 85,
+              "operation": "largerEqual"
+            }
+          ]
+        }
+      },
+      "id": "node-high-relevance",
+      "name": "High Relevance (>85)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83d\udea8 **GrowthAgent \u2014 High-Value Signal Detected!**\n\n**Title:** {{ $('Supabase: Insert Signal').item.json.title }}\n\n**Summary:** {{ $('Supabase: Insert Signal').item.json.summary }}\n\n**Relevance:** {{ $('Supabase: Insert Signal').item.json.relevance_score }}/100 | **Confidence:** {{ $('Supabase: Insert Signal').item.json.confidence_score }}/100\n**Source:** {{ $('Supabase: Insert Signal').item.json.source_credibility }} | **Evidence:** {{ $('Supabase: Insert Signal').item.json.evidence_level }}\n\nThis signal is now in the opportunity queue for evaluation.",
+        "options": {}
+      },
+      "id": "node-discord-alert",
+      "name": "Discord: High-Value Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        140
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Define Research Queries": {
+      "main": [
+        [
+          {
+            "node": "Loop Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Queries": {
+      "main": [
+        [
+          {
+            "node": "Wait 12s (Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Wait 12s (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Perplexity: Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity: Research": {
+      "main": [
+        [
+          {
+            "node": "Wait 15s (Gemini Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s (Gemini Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Gemini: Evaluate Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: Evaluate Signals": {
+      "main": [
+        [
+          {
+            "node": "Parse Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Signals": {
+      "main": [
+        [
+          {
+            "node": "Has Signals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Signals?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert Signal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert Signal": {
+      "main": [
+        [
+          {
+            "node": "High Relevance (>85)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Relevance (>85)?": {
+      "main": [
+        [
+          {
+            "node": "Discord: High-Value Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord: High-Value Alert": {
+      "main": [
+        [
+          {
+            "node": "Loop Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 12 Hours": {
+      "main": [
+        [
+          {
+            "node": "Define Research Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "GrowthAgent-jr-competitor-scout-v1"
+}

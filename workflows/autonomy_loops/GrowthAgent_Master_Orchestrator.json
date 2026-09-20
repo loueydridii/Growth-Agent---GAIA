@@ -1,0 +1,618 @@
+{
+  "name": "GrowthAgent - Master Orchestrator (Discord)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "GrowthAgent-jr-orchestrator",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Discord Message In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "GrowthAgent-jr-orchestrator",
+      "notes": "Receives messages from the Discord Bot. The bot sends: { \"message\": \"...\", \"channelId\": \"...\" }"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are GrowthAgent, the Master AI Orchestrator (CEO Brain) for CloudPulse and Synthetix AI.\\nYou receive tasks from the team via Discord.\\n\\nSTEP 1: Classify the task into exactly ONE category.\\nSTEP 2: Return a JSON object with two keys: 'category' and 'acknowledgment'.\\n\\nCategories:\\nB2B \u2014 emails, outreach, lead generation, university contacts\\nLINKEDIN \u2014 social media posts, LinkedIn content, announcements\\nBLOG \u2014 SEO articles, deep-dives, patient stories, case studies\\nNEWSLETTER \u2014 weekly email updates, Brevo campaigns, subscriber newsletters\\nTREND \u2014 trend research, industry news, competitor analysis, market signals\\nCOO \u2014 executive briefing, weekly report, telemetry, system status, agent health check\\nSEO_GEO \u2014 AI search visibility check, Perplexity/ChatGPT citation scorecard, Schema markup, Replit sandbox\\nSTRATEGIST \u2014 weekly content calendar, GTM editorial plan, content roadmap scheduling\\nUNKNOWN \u2014 if the request is unclear\\n\\nExample output:\\n{\\\"category\\\": \\\"SEO_GEO\\\", \\\"acknowledgment\\\": \\\"Got it! I'm routing your request to the SEO/GEO/AEO Specialist Agent to audit our AI search citations across ChatGPT and Perplexity. Results will be posted right here in this channel in ~1-2 minutes!\\\"}\\n\\nRules:\\n- 'acknowledgment' should be a friendly 1-2 sentence confirmation in GrowthAgent's voice.\\n- ALWAYS state that results will be posted right here in this channel.\\n- ALWAYS return valid JSON. No markdown wrapping.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.body.message || \"\") }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.05,\n    \"maxOutputTokens\": 256\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-gemini-router",
+      "name": "Gemini 2.5 Flash (CEO Brain)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-category",
+              "name": "category",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim()).category.trim().toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "parse-ack",
+              "name": "acknowledgment",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim()).acknowledgment }}",
+              "type": "string"
+            },
+            {
+              "id": "keep-channel",
+              "name": "channelId",
+              "value": "={{ $('Discord Message In').item.json.body.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "keep-message",
+              "name": "originalMessage",
+              "value": "={{ $('Discord Message In').item.json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "keep-message-short",
+              "name": "message",
+              "value": "={{ $('Discord Message In').item.json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "keep-brand",
+              "name": "brand",
+              "value": "={{ $('Discord Message In').item.json.body.message.toLowerCase().includes('Synthetix AI') ? 'Synthetix AI' : 'CloudPulse' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-parse-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Discord Message In').item.json.body.webhookUrl || 'https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"\ud83e\udd16 **GrowthAgent** | {{ $json.acknowledgment }}\"\n}",
+        "options": {}
+      },
+      "id": "node-discord-ack",
+      "name": "Discord: Send Acknowledgment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        300
+      ],
+      "notes": "Sends confirmation back to Discord so the user sees the response immediately."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-b2b",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "B2B",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "B2B Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-linkedin",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "LINKEDIN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "LinkedIn Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-blog",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "BLOG",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Blog Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-newsletter",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "NEWSLETTER",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Newsletter Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-trend",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "TREND",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Trend Research Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-coo",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "COO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "COO Monitor Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-seo-geo",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "SEO_GEO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "SEO/GEO Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "is-strategist",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "STRATEGIST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Content Strategist Agent"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch-router",
+      "name": "Route to Agent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-b2b",
+      "name": "Run B2B Outreach Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        100
+      ],
+      "notes": "After import: click this node \u2192 select 'B2B Executive Outreach' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-linkedin",
+      "name": "Run LinkedIn Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        300
+      ],
+      "notes": "After import: click this node \u2192 select 'LinkedIn Content Automation' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-blog",
+      "name": "Run Blog Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        500
+      ],
+      "notes": "After import: click this node \u2192 select 'Customer Story Pipeline' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-newsletter",
+      "name": "Run Newsletter Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        700
+      ],
+      "notes": "After import: click this node \u2192 select 'GrowthAgent Newsletter Agent (Brevo)' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-trend",
+      "name": "Run Trend Research Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        900
+      ],
+      "notes": "After import: click this node \u2192 select 'GrowthAgent Trend Research Agent' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-coo",
+      "name": "Run COO Monitor Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        1100
+      ],
+      "notes": "After import: click this node \u2192 select 'GrowthAgent COO Monitor Agent' from the dropdown."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Discord Message In').item.json.body.webhookUrl || 'https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"\u26a0\ufe0f **GrowthAgent** | I didn't understand that request. Try something like:\\n- 'Write a LinkedIn post about motion capture for football'\\n- 'Draft cold emails to PT clinic directors in Munich'\\n- 'Write a blog about why 70% of PT patients quit'\\n- 'Draft this week's newsletter for CloudPulse'\\n- 'What are the latest trends in agentic LLM evaluation?'\\n- 'Give me an AI COO executive briefing'\"\n}",
+        "options": {}
+      },
+      "id": "node-unknown-reply",
+      "name": "Discord: Unknown Command",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## \ud83e\udd16 GrowthAgent \u2014 Master Orchestrator (GEOS Edition)\n\n**How it works:**\n1. You type a message in Discord \u2192 the bot sends it here\n2. Gemini Flash-8B classifies the task into one of 8 agents\n3. GrowthAgent acknowledges in Discord instantly\n4. The correct agent runs automatically\n5. Results appear in your Discord channel with HITL buttons\n\n**SETUP:** After import, click each 'Run Agent' node and select the corresponding sub-workflow from the dropdown.\n\n**Agents:** B2B Outreach, LinkedIn, Blog, Newsletter, Trend Research, COO Monitor, SEO/GEO/AEO, Content Strategist"
+      },
+      "id": "node-sticky",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        60,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-seo-geo",
+      "name": "Run SEO/GEO Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        1300
+      ],
+      "notes": "After import: click this node \u2192 select 'GrowthAgent SEO/GEO Agent' from the dropdown."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "node-call-strategist",
+      "name": "Run Content Strategist Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        1500
+      ],
+      "notes": "After import: click this node \u2192 select 'GrowthAgent Content Strategist' from the dropdown."
+    }
+  ],
+  "connections": {
+    "Discord Message In": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash (CEO Brain)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash (CEO Brain)": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Discord: Send Acknowledgment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Route to Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord: Send Acknowledgment": {
+      "main": []
+    },
+    "Route to Agent": {
+      "main": [
+        [
+          {
+            "node": "Run B2B Outreach Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run LinkedIn Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Blog Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Newsletter Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Trend Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run COO Monitor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run SEO/GEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Content Strategist Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Unknown Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

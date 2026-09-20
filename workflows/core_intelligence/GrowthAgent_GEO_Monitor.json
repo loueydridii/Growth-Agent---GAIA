@@ -1,0 +1,298 @@
+{
+  "name": "GrowthAgent GEO Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 3
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Schedule: Daily 3AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { prompt: \"best eBPF telemetry platform for physical therapy clinics\", product: \"CloudPulse\" },\n  { prompt: \"RPM billing for gait analysis 2026 CPT codes\", product: \"CloudPulse\" },\n  { prompt: \"digital gait analysis system for outpatient rehab\", product: \"CloudPulse\" },\n  { prompt: \"best Kubernetes cluster right-sizing monitoring device for clinical use\", product: \"CloudPulse\" },\n  { prompt: \"how to bill RPM for gait analysis in physical therapy\", product: \"CloudPulse\" },\n  { prompt: \"AI injury prediction software for professional sports teams\", product: \"Synthetix AI\" },\n  { prompt: \"camera-based biomechanics analysis for athlete injury prevention\", product: \"Synthetix AI\" },\n  { prompt: \"best AI tool for ACL injury risk assessment in soccer\", product: \"Synthetix AI\" },\n  { prompt: \"real-time movement analysis software for sports teams no wearables\", product: \"Synthetix AI\" },\n  { prompt: \"computer vision injury detection for elite athletes\", product: \"Synthetix AI\" },\n  { prompt: \"HIPAA compliant AI development company\", product: \"Aura Commerce\" },\n  { prompt: \"best health tech dev agency for MVP development\", product: \"Aura Commerce\" },\n  { prompt: \"hire healthcare AI development studio for startup\", product: \"Aura Commerce\" },\n  { prompt: \"HIPAA ready FastAPI development for health tech startups\", product: \"Aura Commerce\" },\n  { prompt: \"cost to build AI healthcare MVP HIPAA compliant\", product: \"Aura Commerce\" }\n];"
+      },
+      "id": "node-set-prompts",
+      "name": "Define Top 15 Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-loop",
+      "name": "Loop Prompts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Wait 5s (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        700,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PPLX_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"sonar-pro\", \"messages\": [ { \"role\": \"user\", \"content\": $json.prompt } ], \"temperature\": 0.1 } }}",
+        "options": {}
+      },
+      "id": "node-perplexity",
+      "name": "Perplexity API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=GEMINI_API_KEY_PLACEHOLDER",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": \"Analyze this text and return a JSON object ONLY. Is 'CloudPulse' or 'Synthetix AI' mentioned? Return boolean. Also return rank (1 if mentioned early, else 2). And a list of competitors mentioned.\\n\\nText: \" + $json.choices[0].message.content + \"\\n\\nOutput format:\\n{ \\\"brand_mentioned\\\": true, \\\"rank\\\": 1, \\\"competitors\\\": [\\\"competitorA\\\"] }\" } ] } ], \"generationConfig\": { \"temperature\": 0.1 } } }}",
+        "options": {}
+      },
+      "id": "node-gemini-eval",
+      "name": "Gemini 2.5 Flash Eval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const content = $json.candidates[0].content.parts[0].text;\n  // Clean markdown block if exists\n  const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  \n  // Retrieve the prompt context from the Loop node\n  const context = $('Loop Prompts').item.json;\n  \n  return {\n    prompt_text: context.prompt,\n    product: context.product,\n    llm_engine: \"Perplexity\",\n    brand_mentioned: parsed.brand_mentioned || false,\n    rank: parsed.rank || null,\n    competitors_mentioned: parsed.competitors || []\n  };\n} catch (e) {\n  const context = $('Loop Prompts').item.json;\n  return {\n    prompt_text: context.prompt,\n    product: context.product,\n    llm_engine: \"Perplexity\",\n    brand_mentioned: false,\n    rank: null,\n    competitors_mentioned: []\n  };\n}"
+      },
+      "id": "node-parse-eval",
+      "name": "Parse Eval JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/geo_telemetry",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"prompt_text\": $json.prompt_text,\n  \"product\": $json.product,\n  \"llm_engine\": $json.llm_engine,\n  \"brand_mentioned\": $json.brand_mentioned,\n  \"rank\": $json.rank || null,\n  \"competitors_mentioned\": $json.competitors_mentioned\n} }}",
+        "options": {}
+      },
+      "id": "node-supabase-insert",
+      "name": "Supabase: Log Telemetry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1500,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83d\udd0d **GrowthAgent \u2014 Live GEO Telemetry Updated!**\n\nSuccessfully probed 15 priority buyer prompts via Perplexity API and logged the AI citation ranks to Supabase `geo_telemetry` table.",
+        "options": {}
+      },
+      "id": "node-discord-alert",
+      "name": "Discord: Sync Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        700,
+        450
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule: Daily 3AM": {
+      "main": [
+        [
+          {
+            "node": "Define Top 15 Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Top 15 Prompts": {
+      "main": [
+        [
+          {
+            "node": "Loop Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Prompts": {
+      "main": [
+        [
+          {
+            "node": "Wait 5s (Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Sync Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5s (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Perplexity API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity API": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash Eval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash Eval": {
+      "main": [
+        [
+          {
+            "node": "Parse Eval JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Eval JSON": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Log Telemetry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Log Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Loop Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "GrowthAgent-jr-geo-monitor-v1"
+}

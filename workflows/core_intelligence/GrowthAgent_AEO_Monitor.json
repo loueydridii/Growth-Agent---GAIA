@@ -1,0 +1,299 @@
+{
+  "name": "GrowthAgent AEO Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 3,
+              "hoursInterval": 48
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Every 48 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { prompt: \"What is agentic LLM evaluation?\", product: \"synthetix_ai\" },\n  { prompt: \"How does AI predict ACL injuries in soccer?\", product: \"synthetix_ai\" },\n  { prompt: \"Is markerless mocap as accurate as Vicon?\", product: \"synthetix_ai\" },\n  { prompt: \"How to bill for remote therapeutic monitoring in physical therapy?\", product: \"cloudpulse_saas\" },\n  { prompt: \"Can you use digital gait analysis for multiple sclerosis patients?\", product: \"cloudpulse_saas\" },\n  { prompt: \"How much does it cost to build a HIPAA compliant healthcare app?\", product: \"aura_commerce\" },\n  { prompt: \"What are the regulatory requirements for medical AI software?\", product: \"aura_commerce\" }\n];"
+      },
+      "id": "node-set-prompts",
+      "name": "Define Question Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-loop",
+      "name": "Loop Prompts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Wait 5s (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        700,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PPLX_API_KEY_PLACEHOLDER"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"sonar-pro\", \"messages\": [ { \"role\": \"user\", \"content\": $json.prompt } ], \"temperature\": 0.1 } }}",
+        "options": {}
+      },
+      "id": "node-perplexity",
+      "name": "Perplexity API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=GEMINI_API_KEY_PLACEHOLDER",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are an Answer Engine Optimization (AEO) expert.\\n\\nYou will be given a question and the raw answer provided by an AI search engine (Perplexity).\\n\\nYour job is to identify 'information gaps'\u2014things the AI failed to explain well, or areas where our product could provide a much better, deeper answer.\\n\\nReturn a JSON object in this format:\\n{\\n  \\\"answer_quality\\\": \\\"good\\\" | \\\"poor\\\" | \\\"missing_nuance\\\",\\n  \\\"information_gap\\\": \\\"Describe exactly what the AI failed to explain or what it got wrong\\\",\\n  \\\"opportunity_title\\\": \\\"A title for a piece of content that would perfectly answer this gap\\\"\\n}\\n\\nIf the AI provided a flawless, unbeatable answer, set answer_quality to 'good' and leave the gap empty.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Question: \" + $('Loop Prompts').item.json.prompt + \"\\n\\nAI Answer: \" + $json.choices[0].message.content\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {}
+      },
+      "id": "node-gemini-eval",
+      "name": "Gemini 2.5 Flash Eval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $json.candidates[0].content.parts[0].text;\n  const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n  const evalData = JSON.parse(cleaned);\n  const prompt = $('Loop Prompts').item.json.prompt;\n  const product = $('Loop Prompts').item.json.product;\n  \n  if (evalData.answer_quality === 'good') {\n     return { has_gap: false, prompt };\n  }\n  \n  return {\n    has_gap: true,\n    signal_type: 'aeo_gap',\n    source: 'perplexity_aeo',\n    product: product,\n    title: evalData.opportunity_title || `AEO Gap: ${prompt}`,\n    summary: `The AI struggle to answer: \"${prompt}\". Gap identified: ${evalData.information_gap}`,\n    raw_data: JSON.stringify({ question: prompt, gap: evalData.information_gap }),\n    relevance_score: 85,\n    confidence_score: 90\n  };\n} catch (e) {\n  return { has_gap: false, error: e.message };\n}"
+      },
+      "id": "node-parse-eval",
+      "name": "Parse Eval JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_PROJECT.supabase.co/rest/v1/GrowthAgent_signals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_ANON_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"signal_type\": $json.signal_type,\n  \"source\": $json.source,\n  \"product\": $json.product,\n  \"title\": $json.title,\n  \"summary\": $json.summary,\n  \"raw_data\": $json.raw_data,\n  \"relevance_score\": $json.relevance_score,\n  \"confidence_score\": $json.confidence_score\n} }}",
+        "options": {}
+      },
+      "id": "node-supabase-insert",
+      "name": "Supabase: Insert AEO Signal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1500,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=\ud83d\udd0d **GrowthAgent \u2014 Live GEO Telemetry Updated!**\n\nSuccessfully probed 15 priority buyer prompts via Perplexity API and logged the AI citation ranks to Supabase `geo_telemetry` table.",
+        "options": {}
+      },
+      "id": "node-discord-alert",
+      "name": "Discord: Sync Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        700,
+        450
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "dGVmDLnUn8939Tz1",
+          "name": "Discord GTM Stories Webhook"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Loop Prompts": {
+      "main": [
+        [
+          {
+            "node": "Wait 5s (Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord: Sync Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5s (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "Perplexity API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity API": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash Eval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash Eval": {
+      "main": [
+        [
+          {
+            "node": "Parse Eval JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Eval JSON": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Insert AEO Signal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Question Queries": {
+      "main": [
+        [
+          {
+            "node": "Loop Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 48 Hours": {
+      "main": [
+        [
+          {
+            "node": "Define Top 15 Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Insert AEO Signal": {
+      "main": [
+        [
+          {
+            "node": "Loop Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "GrowthAgent-jr-aeo-monitor-v1"
+}

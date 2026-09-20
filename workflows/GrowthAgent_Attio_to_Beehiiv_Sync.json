@@ -1,0 +1,123 @@
+{
+  "name": "GrowthAgent CRM to NewsletterPlatform Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "CRM-person",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-CRM",
+      "name": "Webhook (CRM)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// CRM webhook payloads vary. Usually it sends the record ID.\n// For MVP, we assume the webhook includes the email in the payload, OR we need to fetch it.\n// Assuming CRM sends the email in the values object.\ntry {\n  const emailObj = $json.body.data.values.email_addresses[0];\n  if (!emailObj) return { empty: true };\n  \n  return {\n    email: emailObj.email_address\n  };\n} catch(e) {\n  return { empty: true };\n}\n"
+      },
+      "id": "node-parse-CRM",
+      "name": "Parse CRM Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.empty || false }}",
+              "value2": false,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "node-if-CRM",
+      "name": "Valid Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.NewsletterPlatform.com/v2/publications/' + $env.NewsletterPlatform_PUB_ID + '/subscriptions' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.NewsletterPlatform_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"email\": $json.email,\n  \"reactivate_existing\": false,\n  \"send_welcome_email\": true,\n  \"utm_source\": \"CRM\"\n} }}"
+      },
+      "id": "node-NewsletterPlatform",
+      "name": "NewsletterPlatform: Subscribe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (CRM)": {
+      "main": [
+        [
+          {
+            "node": "Parse CRM Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CRM Payload": {
+      "main": [
+        [
+          {
+            "node": "Valid Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Email?": {
+      "main": [
+        [
+          {
+            "node": "NewsletterPlatform: Subscribe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versioGrowthAgent": "GrowthAgent-jr-CRM-NewsletterPlatform-v1"
+}
