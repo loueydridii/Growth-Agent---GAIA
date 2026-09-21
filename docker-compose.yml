@@ -1,45 +1,99 @@
 version: '3.8'
 
+networks:
+  gaia-network:
+    driver: bridge
+
 services:
+
+  # ── Postgres + pgvector (for SQLAlchemy models & HubSpot cache) ──────────
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: growth_agent_postgres
+    container_name: gaia_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-growth_agent}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
-      POSTGRES_DB: ${POSTGRES_DB:-memory_layer}
+      POSTGRES_USER: ${POSTGRES_USER:-gaia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gaiapassword}
+      POSTGRES_DB: ${POSTGRES_DB:-gaiadb}
     ports:
       - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
+    networks:
+      - gaia-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gaia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: growth_agent_n8n
+  # ── Neo4j (for Graphiti temporal knowledge graph) ────────────────────────
+  neo4j:
+    image: neo4j:5.18-community
+    container_name: gaia_neo4j
     restart: unless-stopped
     environment:
-      # Database Configuration
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-gaianeo4j}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - gaia-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "${NEO4J_USER:-neo4j}", "-p", "${NEO4J_PASSWORD:-gaianeo4j}", "RETURN 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ── Redis (for Celery task queue) ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: gaia_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - gaia-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── n8n (automation execution layer) ─────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: gaia_n8n
+    restart: unless-stopped
+    environment:
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-memory_layer}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-gaiadb}
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_USER=${POSTGRES_USER:-growth_agent}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-password123}
-      # Environment Configuration
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-gaia}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-gaiapassword}
       - N8N_HOST=${N8N_HOST:-localhost}
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-changeme_32chars_minimum_length!}
     ports:
       - "5678:5678"
     volumes:
-      - n8n_data:/home/node/.n8n
+      - n8n-data:/home/node/.n8n
+      - ./workflows:/home/node/workflows:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - gaia-network
 
 volumes:
   pg-data:
-  n8n_data:
+  neo4j-data:
+  n8n-data:

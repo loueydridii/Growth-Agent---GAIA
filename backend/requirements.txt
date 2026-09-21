@@ -1,5 +1,41 @@
+# Core
 fastapi>=0.111.0
-uvicorn>=0.30.1
+uvicorn[standard]>=0.30.1
 pydantic>=2.7.4
+pydantic-settings>=2.3.0
 python-multipart>=0.0.9
+python-dotenv>=1.0.1
+
+# Database
+sqlalchemy[asyncio]>=2.0.31
+asyncpg>=0.29.0
+alembic>=1.13.2
+
+# Cache & Task Queue
+redis>=5.0.7
+celery[redis]>=5.4.0
+
+# HTTP Client (n8n API, search engines)
 httpx>=0.27.0
+
+# LLM — Primary brain
+google-genai>=1.0.0
+
+# Memory — Graphiti (Neo4j temporal graph)
+graphiti-core>=0.3.0
+
+# Search engines
+tavily-python>=0.3.3
+exa-py>=1.0.9
+
+# Content generation
+jinja2>=3.1.4             # templating for email/content
+
+# Security
+cryptography>=43.0.0      # AES-256 key encryption
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+
+# Utils
+pendulum>=3.0.0           # timezone-aware datetime
+structlog>=24.2.0         # structured logging
