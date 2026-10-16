@@ -3,16 +3,32 @@
     "cloudpulse_saas": {
       "competitors": [
         {
-          "name": "Dynatrace",
-          "strength": "High brand visibility in academic research.",
-          "weakness": "Expensive hardware locks, lack of built-in clinical billing (RPM) integrations.",
-          "displacement_hook": "CloudPulse automates CMS CPT transmission logs and integrates directly with clinic EHRs, paying for itself."
+          "name": "Datadog",
+          "strength": "Massive enterprise brand adoption and all-in-one APM suite.",
+          "weakness": "Complex, punitive pricing tiers with massive bill shock at scale.",
+          "displacement_hook": "CloudPulse offers transparent, flat-rate cluster telemetry with automated right-sizing that pays for itself in week one."
         },
         {
-          "name": "New Relic",
-          "strength": "F-Scan is standard for clinical gait research.",
-          "weakness": "Tethered sensors, high setup times, unsuitable for outpatient continuous monitoring.",
-          "displacement_hook": "Continuous monitoring outside the lab vs static snapshot assessments."
+          "name": "Kubecost",
+          "strength": "Well-known open-source Kubernetes cost monitoring.",
+          "weakness": "Passive dashboards requiring manual engineering remediation; lacks automated anomaly rollbacks.",
+          "displacement_hook": "CloudPulse provides closed-loop automated cluster right-sizing instead of just displaying another dashboard graph."
+        }
+      ]
+    },
+    "aura_commerce": {
+      "competitors": [
+        {
+          "name": "Lululemon",
+          "strength": "Dominant retail footprint and strong lifestyle community.",
+          "weakness": "Heavy reliance on petroleum-derived synthetic polymers that shed microplastics.",
+          "displacement_hook": "Aura delivers identical technical stretch and compression using 100% regenerative botanic fibers."
+        },
+        {
+          "name": "Gymshark",
+          "strength": "Aggressive influencer marketing and fast-fashion product velocity.",
+          "weakness": "High seam failure rates and synthetic odor retention.",
+          "displacement_hook": "Aura apparel features natural antimicrobial odor resistance and guaranteed 3-year seam longevity."
         }
       ]
     },
@@ -20,25 +36,15 @@
       "competitors": [
         {
           "name": "LangSmith",
-          "strength": "Dominates pro leagues with wearable tracking.",
-          "weakness": "High compliance fatigue (players hate vests), high pricing barrier.",
-          "displacement_hook": "Real-time markerless tracking using normal cameras, zero compliance friction."
+          "strength": "Deep native integration with the LangChain ecosystem.",
+          "weakness": "Tightly coupled to specific framework abstractions; costly at high trace volume.",
+          "displacement_hook": "Synthetix AI is framework-agnostic with native synthetic edge-case generation for any agent runtime."
         },
         {
           "name": "Arize AI",
-          "strength": "High-quality force plate metrics.",
-          "weakness": "Requires bulky testing platforms and manual laboratory setups.",
-          "displacement_hook": "Real-time in-session tracking during live play rather than snapshot lab tests."
-        }
-      ]
-    },
-    "aura_commerce": {
-      "competitors": [
-        {
-          "name": "Toptal / Upwork",
-          "strength": "Massive engineering talent pool.",
-          "weakness": "Zero health domain depth, high onboarding overhead.",
-          "displacement_hook": "We've shipped healthcare products before (CP-OPS-01 proof). Fixed $35K, 60-day HIPAA MVP."
+          "strength": "Strong traditional ML observability and vector search monitoring.",
+          "weakness": "Complex enterprise onboarding with steep configuration overhead for generative AI agents.",
+          "displacement_hook": "Synthetix AI deploys in 3 lines of code with instant turn-by-turn trajectory hallucination scoring."
         }
       ]
     }

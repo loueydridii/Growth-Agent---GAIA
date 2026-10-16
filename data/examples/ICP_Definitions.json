@@ -2,42 +2,42 @@
   "icps": {
     "devops_dave": {
       "product_alignment": "cloudpulse_saas",
-      "target_role": "PT Clinic Owner / Clinical Director",
-      "firmographics": "Outpatient physical therapy clinics, 5-25 staff therapists.",
+      "target_role": "VP of Infrastructure / Head of Platform Engineering",
+      "firmographics": "Scaleups & Mid-Market tech companies (100 - 1,000 employees), $50K+ monthly AWS/GCP bills.",
       "pain_points": [
-        "Clinician burnout and low utilization margins.",
-        "Patient retention drop-off (ghosting after 4 sessions).",
-        "Unearned CPT-billable remote patient monitoring revenue."
+        "Uncontrolled Kubernetes cluster spend and unallocated compute resources.",
+        "Engineering pushback on manual cost optimization tasks.",
+        "Unexpected month-end cloud invoice surges causing board friction."
       ],
-      "buying_motivator": "Increase revenue per clinician without adding staff; show gait progression visual charts to increase patient visits.",
-      "forbidden_topics": ["digital twin technology", "musculoskeletal AI modeling"],
-      "focus_topics": ["RPM payback math", "Medicare gait code expansion 2026", "patient retention charts"]
-    },
-    "founder_felix": {
-      "product_alignment": "synthetix_ai",
-      "target_role": "Head of Sports Science / Performance Director",
-      "firmographics": "Professional sports clubs (MLS, NFL, Premier League), NCAA D1 programs.",
-      "pain_points": [
-        "High cost of soft-tissue and ACL injuries.",
-        "Wearable compliance friction (players hate sensors/trackers).",
-        "Reactive injury monitoring (analysts find issues post-break)."
-      ],
-      "buying_motivator": "Keep players active on the field; markerless visual tracking from standard training cameras without compliance fatigue.",
-      "forbidden_topics": ["selling to GMs first", "individual player names in risk claims"],
-      "focus_topics": ["joint valgus thresholds", "real-time asymmetry alerts", "agentic LLM evaluation"]
+      "buying_motivator": "Automate cloud cost reduction without burdening platform engineers or risking production reliability.",
+      "forbidden_topics": ["manual tagging mandates", "complex spreadsheet audits"],
+      "focus_topics": ["automated cluster right-sizing", "eBPF cost telemetry", "35% bill reduction case studies"]
     },
     "merchant_maya": {
       "product_alignment": "aura_commerce",
-      "target_role": "Healthtech CEO / CTO",
-      "firmographics": "Founded 2023-2025, raised $500K-$10M seed/Series A, 3-25 staff, pre-product.",
+      "target_role": "Active Lifestyle Enthusiast & Eco-Conscious Athlete",
+      "firmographics": "Age 26-44, urban professionals, frequent gym-goers, runners, and outdoor athletes.",
       "pain_points": [
-        "Runway burnout (12-18 months left).",
-        "Technical bottlenecks or co-founder breakups.",
-        "Failing hospital procurement reviews due to lack of HIPAA compliance."
+        "Synthetic workout apparel retaining odors after 3-5 washes.",
+        "Frustration with microplastic shedding and fast-fashion environmental degradation.",
+        "Chafing and lack of temperature regulation during high-intensity training."
       ],
-      "buying_motivator": "Ship a production-grade AI MVP in under 60 days to hit investor milestones and pass security reviews.",
-      "forbidden_topics": ["agile retainers without scope", "generic software outsourcing"],
-      "focus_topics": ["60-day fixed HIPAA MVP", "CP-OPS-01 backend proof", "cloud compliance certificates"]
+      "buying_motivator": "High-performance technical activewear that feels softer than cotton, regulates heat naturally, and aligns with circular sustainability.",
+      "forbidden_topics": ["cheap polyester discounts", "unsupported greenwashing buzzwords"],
+      "focus_topics": ["regenerative plant fiber benefits", "natural odor resistance", "lifecycle durability"]
+    },
+    "founder_felix": {
+      "product_alignment": "synthetix_ai",
+      "target_role": "AI Tech Lead / Head of Generative AI Engineering",
+      "firmographics": "AI startups and product teams building autonomous agentic workflows and LLM-driven applications.",
+      "pain_points": [
+        "Silent prompt regressions and hallucinated edge-cases slipping into production.",
+        "Lack of high-quality synthetic test datasets to benchmark reasoning trajectories.",
+        "Manual prompt testing bottlenecking deployment velocity."
+      ],
+      "buying_motivator": "Continuous automated evaluation in CI/CD with instant root-cause tracing for model hallucination regressions.",
+      "forbidden_topics": ["generic prompt engineering tips", "vague artificial intelligence claims"],
+      "focus_topics": ["automated regression benchmarks", "synthetic scenario generation", "multi-turn trajectory scoring"]
     }
   }
 }

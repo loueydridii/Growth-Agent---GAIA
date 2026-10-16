@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  { prompt: \"What is agentic LLM evaluation?\", product: \"synthetix_ai\" },\n  { prompt: \"How does AI predict ACL injuries in soccer?\", product: \"synthetix_ai\" },\n  { prompt: \"Is markerless mocap as accurate as Vicon?\", product: \"synthetix_ai\" },\n  { prompt: \"How to bill for remote therapeutic monitoring in physical therapy?\", product: \"cloudpulse_saas\" },\n  { prompt: \"Can you use digital gait analysis for multiple sclerosis patients?\", product: \"cloudpulse_saas\" },\n  { prompt: \"How much does it cost to build a HIPAA compliant healthcare app?\", product: \"aura_commerce\" },\n  { prompt: \"What are the regulatory requirements for medical AI software?\", product: \"aura_commerce\" }\n];"
+        "jsCode": "return [\n  { prompt: \"How to automate Kubernetes cluster cost optimization?\", product: \"cloudpulse_saas\" },\n  { prompt: \"Best tools for eBPF cloud infrastructure cost observability\", product: \"cloudpulse_saas\" },\n  { prompt: \"How to benchmark LLM multi-turn agent reasoning in CI/CD?\", product: \"synthetix_ai\" },\n  { prompt: \"How to catch hallucinations in generative AI pipelines?\", product: \"synthetix_ai\" },\n  { prompt: \"Best sustainable microplastic-free performance activewear\", product: \"aura_commerce\" },\n  { prompt: \"Regenerative botanical textiles for endurance sportswear\", product: \"aura_commerce\" }\n];"
       },
       "id": "node-set-prompts",
       "name": "Define Question Queries",

@@ -23,11 +23,11 @@
     },
     {
       "parameters": {
-        "url": "https://news.google.com/rss/search?q=smart+insoles+OR+remote+patient+monitoring+OR+markerless+motion+capture&hl=en-US&gl=US&ceid=US:en",
+        "url": "https://news.google.com/rss/search?q=kubernetes+finops+OR+generative+ai+agents+OR+sustainable+fashion&hl=en-US&gl=US&ceid=US:en",
         "options": {}
       },
       "id": "node-rss",
-      "name": "RSS Feed: Healthcare & Sports AI News",
+      "name": "RSS Feed: Tech & Modern Commerce Trends",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
       "position": [
@@ -41,7 +41,7 @@
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are GrowthAgent Trend Analyst. Review these news items and pick the top 2 trends relevant to CloudPulse (eBPF telemetrys, RPM for PT clinics) and Synthetix AI (agentic LLM evaluation for football/sports).\\nReturn JSON array of objects with keys: 'topic', 'brand', 'angle', 'status' (set status to 'pending').\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify(($json.title || \"\") + \" - \" + ($json.link || \"\")) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.3\n  }\n}",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are GrowthAgent Trend Analyst. Review these news items and pick the top 2 trends relevant to CloudPulse (Kubernetes cloud FinOps SaaS) and Synthetix AI (agentic LLM evaluation platform).\\nReturn JSON array of objects with keys: 'topic', 'brand', 'angle', 'status' (set status to 'pending').\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify(($json.title || \"\") + \" - \" + ($json.link || \"\")) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.3\n  }\n}",
         "options": {
           "response": {
             "response": {

@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  { query: 'Arize AI new product launch press release', category: 'product_launch', product: 'synthetix_ai', competitor: 'Arize AI' },\n  { query: 'LangSmith wearable tech updates news', category: 'product_launch', product: 'synthetix_ai', competitor: 'LangSmith' },\n  { query: 'Dynatrace sensor insoles reviews complaints', category: 'market_feedback', product: 'synthetix_ai', competitor: 'Dynatrace' },\n  { query: 'New Relic pressure mapping clinical research', category: 'clinical_research', product: 'cloudpulse_saas', competitor: 'New Relic' },\n  { query: 'Datadog biomechanics software updates', category: 'product_launch', product: 'synthetix_ai', competitor: 'Datadog' }\n];"
+        "jsCode": "return [\n  { query: 'Datadog Kubernetes cost anomaly features announcement', category: 'product_launch', product: 'cloudpulse_saas', competitor: 'Datadog' },\n  { query: 'Kubecost cloud infrastructure cost monitoring pricing updates', category: 'pricing_change', product: 'cloudpulse_saas', competitor: 'Kubecost' },\n  { query: 'LangSmith LLM automated evaluation benchmarks updates', category: 'product_launch', product: 'synthetix_ai', competitor: 'LangSmith' },\n  { query: 'Arize AI agent trajectory evaluation release', category: 'product_launch', product: 'synthetix_ai', competitor: 'Arize AI' },\n  { query: 'Lululemon circular sustainable apparel materials news', category: 'market_feedback', product: 'aura_commerce', competitor: 'Lululemon' }\n];"
       },
       "id": "node-queries",
       "name": "Define Research Queries",
@@ -33,7 +33,7 @@
         300,
         300
       ],
-      "notes": "5 research queries focused on Synthetix AI's domain: agentic LLM evaluation, injury prediction, sports biomechanics, ACL prevention, and sports tech industry."
+      "notes": "5 research queries focused on core competitor benchmarks: cloud observability, FinOps, LLM evaluations, and sustainable commerce."
     },
     {
       "parameters": {
@@ -93,7 +93,7 @@
         900,
         280
       ],
-      "notes": "Search Perplexity for competitor intelligence"
+      "notes": "5 research queries focused on core competitor benchmarks: cloud observability, FinOps, LLM evaluations, and sustainable commerce."
     },
     {
       "parameters": {
@@ -135,7 +135,7 @@
         1300,
         280
       ],
-      "notes": "Fast tier: evaluates Perplexity research and extracts structured signals with relevance scores, credibility, and evidence levels."
+      "notes": "5 research queries focused on core competitor benchmarks: cloud observability, FinOps, LLM evaluations, and sustainable commerce."
     },
     {
       "parameters": {
@@ -149,7 +149,7 @@
         1500,
         280
       ],
-      "notes": "Parses the Gemini JSON response into individual signal objects ready for Supabase insertion."
+      "notes": "5 research queries focused on core competitor benchmarks: cloud observability, FinOps, LLM evaluations, and sustainable commerce."
     },
     {
       "parameters": {

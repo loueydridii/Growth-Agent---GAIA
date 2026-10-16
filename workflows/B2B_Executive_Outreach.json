@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "B2B Executive Outreach (Enterprise V3 - Supabase + Apollo)",
   "nodes": [
     {
@@ -18,15 +18,15 @@
           "__rl": true,
           "value": "YOUR_GOOGLE_SHEET_ID",
           "mode": "list",
-          "cachedResultName": "Untitled spreadsheet",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+          "cachedResultName": "Target Prospects Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
         },
         "sheetName": {
           "__rl": true,
-          "value": 1976250630,
+          "value": "Prospects",
           "mode": "list",
-          "cachedResultName": "Target_Prospects",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1976250630"
+          "cachedResultName": "Prospects",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
         },
         "options": {}
       },
@@ -118,9 +118,9 @@
           },
           "conditions": [
             {
-              "id": "cond-Synthetix AI-check",
+              "id": "cond-synthetix-check",
               "leftValue": "={{ $json.Product || $json.Brand || '' }}",
-              "rightValue": "Synthetix AI",
+              "rightValue": "synthetix_ai",
               "operator": {
                 "type": "string",
                 "operation": "contains"
@@ -132,7 +132,7 @@
         "options": {}
       },
       "id": "node-product-router",
-      "name": "Product Router (Synthetix AI vs CloudPulse)",
+      "name": "Product Router (CloudPulse vs Synthetix)",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -144,7 +144,7 @@
       "parameters": {
         "amount": 2
       },
-      "id": "node-wait-estep",
+      "id": "node-wait-cloudpulse",
       "name": "Wait RateLimit (CloudPulse)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -168,10 +168,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"CONTEXT FROM MEMORY:\\n{{ $('Validate & Filter').item.json.map ? $('Validate & Filter').item.json.map(item => item.content).join('\\\\n') : '' }}\\n\\nYou are Your Name, Growth Engineering at CloudPulse. You are writing a personalised cold outreach email to a physical therapy clinic director or academic researcher.\\n\\nLANGUAGE RULES \u2014 you must select the email language based on the target's country:\\n- United States, Canada, Australia, United Kingdom, Ireland, South Africa, Nigeria, Kenya, Ghana, Ethiopia, Tanzania, Uganda, Rwanda, Senegal, Ivory Coast, or any other African country \u2192 write in English\\n- France, Belgium, Luxembourg, Morocco, Tunisia, Algeria, Cameroon, Madagascar \u2192 write in French (formal 'vous')\\n- Germany, Austria, Switzerland \u2192 write in German (formal Sie-Form)\\n- Spain \u2192 write in Spanish (formal usted)\\n- Italy \u2192 write in Italian (formal Lei)\\n- Netherlands, Belgium (Dutch-speaking) \u2192 write in Dutch (formal u)\\n- Portugal, Brazil \u2192 write in Portuguese (formal o senhor / a senhora)\\n- All other countries or unknown \u2192 write in English\\n\\nRules:\\n1. Use the language selected above. Never mix languages.\\n2. Keep under 120 words. No filler words. No hype.\\n3. Reference their clinic name or paper explicitly to show you did your research.\\n4. Core Pitch: CloudPulse eBPF telemetrys enable continuous remote gait monitoring that improves patient compliance and unlocks RPM reimbursement revenue (mention Growth Tier and Enterprise Tier for US targets only; for other markets reference local RPM billing or remote patient monitoring programme revenue instead).\\n5. Offer: 90-day free pilot access or research collaboration.\\n6. CTA: Invite them to a brief 10-minute Zoom call next week.\\n7. Sign off appropriately in the chosen language. Always include: Your Name, Growth Engineering, CloudPulse.\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nPI/Contact Name: {{ $('Validate & Filter').item.json['PI Name'] || $('Validate & Filter').item.json['Contact Name'] }}\\nDepartment/Clinic: {{ $('Validate & Filter').item.json['Department / Lab'] || $('Validate & Filter').item.json['Clinic Name'] }}\\nPaper/Topic: {{ $('Validate & Filter').item.json['Paper (short title)'] || $('Validate & Filter').item.json.Topic }}\\nLimitations/Pain Point: {{ $('Validate & Filter').item.json['Limitations Quote (verbatim)'] || $('Validate & Filter').item.json['Pain Point'] }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"CONTEXT FROM MEMORY:\\n{{ $('Validate & Filter').item.json.map ? $('Validate & Filter').item.json.map(item => item.content).join('\\\\n') : '' }}\\n\\nYou are Growth Engineering at CloudPulse. You are writing a personalised cold outreach email to a VP of Infrastructure, Head of Platform Engineering, or DevOps Director.\\n\\nRules:\\n1. Keep under 120 words. No filler, no hype.\\n2. Reference their company, infrastructure stack, or recent engineering blog post explicitly to show you did your research.\\n3. Core Pitch: CloudPulse delivers closed-loop eBPF cluster telemetry that automatically cuts unallocated Kubernetes compute costs by 35% without degrading production latency or availability SLAs.\\n4. Offer: Free 14-day staging cluster efficiency audit report.\\n5. CTA: Invite them to a brief 10-minute technical briefing next week.\\n6. Sign off cleanly: Growth Engineering, CloudPulse (cloudpulse.io).\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nContact Name: {{ $('Validate & Filter').item.json['Contact Name'] || $('Validate & Filter').item.json['Full Name'] }}\\nCompany: {{ $('Validate & Filter').item.json['Company Name'] || $('Validate & Filter').item.json.Company }}\\nTech Stack / Cloud: {{ $('Validate & Filter').item.json['Tech Stack'] || $('Validate & Filter').item.json.Infrastructure }}\\nEfficiency Pain Point: {{ $('Validate & Filter').item.json['Pain Point'] || $('Validate & Filter').item.json.Notes }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
         "options": {}
       },
-      "id": "node-gemini-estep",
+      "id": "node-gemini-cloudpulse",
       "name": "Gemini 2.5 (CloudPulse Prompt)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -206,7 +206,7 @@
         },
         "options": {}
       },
-      "id": "node-parse-estep",
+      "id": "node-parse-cloudpulse",
       "name": "Parse CloudPulse Email JSON",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -228,7 +228,7 @@
         "options": {}
       },
       "id": "node-gmail-estep",
-      "name": "Gmail: Draft (hello@yourcompany.com)",
+      "name": "Gmail: Draft (growth@cloudpulse.io)",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
@@ -238,7 +238,7 @@
       "credentials": {
         "gmailOAuth2": {
           "id": "GLu037GBIw2k3Moh",
-          "name": "Gmail account (hello@yourcompany.com)"
+          "name": "Gmail account (growth@cloudpulse.io)"
         }
       }
     },
@@ -246,7 +246,7 @@
       "parameters": {
         "amount": 2
       },
-      "id": "node-wait-Synthetix AI",
+      "id": "node-wait-synthetix",
       "name": "Wait RateLimit (Synthetix AI)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -270,10 +270,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"You are Example Founder, Founder & CEO at Synthetix AI. You are writing a personalised cold outreach email to a Sports Science Director, Head Coach, Football Club Performance Analyst, or Academic Biomechanics PI.\\n\\nLANGUAGE RULES \u2014 select the email language based on the target's country:\\n- United States, Canada, Australia, United Kingdom, Ireland, South Africa, Nigeria, Kenya, Ghana, Ethiopia, Tanzania, Uganda, Rwanda, Senegal, Ivory Coast, or any other African country \u2192 write in English\\n- France, Belgium, Luxembourg, Morocco, Tunisia, Algeria, Cameroon, Madagascar \u2192 write in French (formal 'vous')\\n- Germany, Austria, Switzerland \u2192 write in German (formal Sie-Form)\\n- Spain \u2192 write in Spanish (formal usted)\\n- Italy \u2192 write in Italian (formal Lei)\\n- Netherlands, Belgium (Dutch-speaking) \u2192 write in Dutch (formal u)\\n- Portugal, Brazil \u2192 write in Portuguese (formal o senhor / a senhora)\\n- All other countries or unknown \u2192 write in English\\n\\nRules:\\n1. Use the language selected above. Never mix languages.\\n2. Keep under 120 words. Direct, no filler words.\\n3. Reference their club, institute, or paper explicitly. Show you know their context.\\n4. Core Pitch: Synthetix AI detects pre-injury mechanical risk precursors using markerless 3D pose estimation from existing 2D training cameras. No wearables, no lab suits, no disruption to training.\\n5. Offer: Free technical demo on a short clip of their own training footage.\\n6. CTA: Ask for a 10-minute Zoom call next week.\\n7. Sign off appropriately in the chosen language. Always include: Example Founder, Founder & CEO, Synthetix AI, yourproduct.ai\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nPI/Contact Name: {{ $('Validate & Filter').item.json['PI Name'] || $('Validate & Filter').item.json['Contact Name'] }}\\nOrganization/Club: {{ $('Validate & Filter').item.json['Department / Lab'] || $('Validate & Filter').item.json.Organization }}\\nPaper/Focus: {{ $('Validate & Filter').item.json['Paper (short title)'] || $('Validate & Filter').item.json['Focus Area'] }}\\nLimitations/Quote: {{ $('Validate & Filter').item.json['Limitations Quote (verbatim)'] || $('Validate & Filter').item.json.Notes }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
+        "jsonBody": "={\n  \"system_instruction\": {\n    \"parts\": [{\n      \"text\": \"CONTEXT FROM MEMORY:\\n{{ $('Validate & Filter').item.json.map ? $('Validate & Filter').item.json.map(item => item.content).join('\\\\n') : '' }}\\n\\nYou are Growth Engineering at Synthetix AI. You are writing a personalised cold outreach email to an AI Tech Lead, Head of GenAI Engineering, or Chief AI Officer.\\n\\nRules:\\n1. Keep under 120 words. High-density, developer-to-developer tone.\\n2. Reference their LLM product, public agent architecture, or recent model release.\\n3. Core Pitch: Synthetix AI automatically generates synthetic edge-case evaluation suites and benchmarks multi-turn agent reasoning trajectories in CI/CD before user deployment.\\n4. Offer: Free automated benchmark report on 100 sample prompt/agent trajectories.\\n5. CTA: Invite them to a 10-minute technical demo next week.\\n6. Sign off cleanly: Growth Engineering, Synthetix AI (synthetix.ai).\\n\\nOUTPUT: Return ONLY a valid JSON object with exactly two keys: 'Subject' and 'Body'.\"\n    }]\n  },\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Target Country: {{ $('Validate & Filter').item.json.Country || $('Validate & Filter').item.json.Region || 'Unknown' }}\\nContact Name: {{ $('Validate & Filter').item.json['Contact Name'] || $('Validate & Filter').item.json['Full Name'] }}\\nCompany: {{ $('Validate & Filter').item.json['Company Name'] || $('Validate & Filter').item.json.Company }}\\nAI Model / Pipeline: {{ $('Validate & Filter').item.json['Model Pipeline'] || $('Validate & Filter').item.json.Architecture }}\\nEvaluation Bottleneck: {{ $('Validate & Filter').item.json['Pain Point'] || $('Validate & Filter').item.json.Notes }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.7\n  }\n}",
         "options": {}
       },
-      "id": "node-gemini-Synthetix AI",
+      "id": "node-gemini-synthetix",
       "name": "Gemini 2.5 (Synthetix AI Prompt)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -308,7 +308,7 @@
         },
         "options": {}
       },
-      "id": "node-parse-Synthetix AI",
+      "id": "node-parse-synthetix",
       "name": "Parse Synthetix AI Email JSON",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -330,7 +330,7 @@
         "options": {}
       },
       "id": "node-gmail-Synthetix AI",
-      "name": "Gmail: Draft (contact@yourproduct.ai)",
+      "name": "Gmail: Draft (contact@synthetix.ai)",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
@@ -340,14 +340,14 @@
       "credentials": {
         "gmailOAuth2": {
           "id": "GrowthAgentHAL_Synthetix AI_GMAIL_OAUTH_CREDENTIAL_ID",
-          "name": "Gmail account (contact@yourproduct.ai)"
+          "name": "Gmail account (contact@synthetix.ai)"
         }
       }
     },
     {
       "parameters": {
         "authentication": "webhook",
-        "content": "\u2705 **Unified Outreach Batch Complete!**\n\ud83d\udcec All eligible emails have been routed by product and sitting in their respective Gmail Drafts folders (`hello@yourcompany.com` & `contact@yourproduct.ai`) with recipient email addresses populated.\nPlease review and send!",
+        "content": "\u2705 **Unified Outreach Batch Complete!**\n\ud83d\udcec All eligible emails have been routed by product and sitting in their respective Gmail Drafts folders (`growth@cloudpulse.io` & `contact@synthetix.ai`) with recipient email addresses populated.\nPlease review and send!",
         "options": {}
       },
       "id": "node-discord-summary",
@@ -412,7 +412,7 @@
         },
         "options": {}
       },
-      "id": "node-supa-Synthetix AI",
+      "id": "node-supa-synthetix",
       "name": "Supabase (Synthetix AI Context)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -440,7 +440,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"api_key\": \"YOUR_APOLLO_API_KEY\",\n  \"q_keywords\": \"Physical Therapy Clinic Owner Germany\",\n  \"person_locations\": [\"Germany\"]\n}",
+        "jsonBody": "{\n  \"api_key\": \"YOUR_APOLLO_API_KEY\",\n  \"q_keywords\": \"VP Engineering OR Head of Platform\",\n  \"person_locations\": [\n    \"United States\",\n    \"United Kingdom\",\n    \"Germany\"\n  ]\n}",
         "options": {}
       },
       "id": "node-apollo",
@@ -576,14 +576,14 @@
       "main": [
         [
           {
-            "node": "Gmail: Draft (hello@yourcompany.com)",
+            "node": "Gmail: Draft (growth@cloudpulse.io)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gmail: Draft (hello@yourcompany.com)": {
+    "Gmail: Draft (growth@cloudpulse.io)": {
       "main": [
         [
           {
@@ -620,14 +620,14 @@
       "main": [
         [
           {
-            "node": "Gmail: Draft (contact@yourproduct.ai)",
+            "node": "Gmail: Draft (contact@synthetix.ai)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gmail: Draft (contact@yourproduct.ai)": {
+    "Gmail: Draft (contact@synthetix.ai)": {
       "main": [
         [
           {

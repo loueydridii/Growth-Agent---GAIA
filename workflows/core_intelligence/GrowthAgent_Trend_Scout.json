@@ -1,5 +1,5 @@
 {
-  "name": "GrowthAgent v3 \u2014 Trend Scout (Synthetix AI)",
+  "name": "GrowthAgent v3 \u2014 Trend Scout (Universal Multi-Product)",
   "nodes": [
     {
       "parameters": {
@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  // Synthetix AI\n  { query: 'agentic LLM evaluation sports 2026', category: 'sports_science', product: 'synthetix_ai' },\n  { query: 'AI injury prediction professional football soccer', category: 'sports_science', product: 'synthetix_ai' },\n  { query: 'computer vision biomechanics athlete monitoring', category: 'sports_science', product: 'synthetix_ai' },\n  { query: 'ACL injury prevention technology soccer', category: 'sports_medicine', product: 'synthetix_ai' },\n  \n  // CloudPulse\n  { query: 'remote patient monitoring neurology reimbursement 2026', category: 'digital_health', product: 'cloudpulse_saas' },\n  { query: 'multiple sclerosis digital biomarkers gait analysis', category: 'research', product: 'cloudpulse_saas' },\n  { query: 'neurorehabilitation wearable technology trends', category: 'rehabilitation', product: 'cloudpulse_saas' },\n\n  // Aura Commerce\n  { query: 'healthtech venture building european startups 2026', category: 'startup_ecosystem', product: 'aura_commerce' },\n  { query: 'AI healthcare startups funding trends', category: 'venture_capital', product: 'aura_commerce' },\n  { query: 'medical device CE MDR compliance software', category: 'regulatory', product: 'aura_commerce' }\n];"
+        "jsCode": "return [\n  // CloudPulse SaaS\n  { query: 'Kubernetes cloud FinOps optimization trends 2026', category: 'cloud_infrastructure', product: 'cloudpulse_saas' },\n  { query: 'eBPF observability enterprise adoption benchmarks', category: 'devops', product: 'cloudpulse_saas' },\n  \n  // Synthetix AI\n  { query: 'LLM synthetic evaluation datasets agent benchmarks', category: 'ai_engineering', product: 'synthetix_ai' },\n  { query: 'AI agent multi-turn trajectory evaluation frameworks', category: 'ai_research', product: 'synthetix_ai' },\n\n  // Aura Commerce\n  { query: 'circular sustainable performance textiles DTC retail 2026', category: 'e_commerce', product: 'aura_commerce' },\n  { query: 'botanical performance apparel market growth', category: 'consumer_trends', product: 'aura_commerce' }\n];"
       },
       "id": "node-queries",
       "name": "Define Research Queries",
@@ -33,7 +33,7 @@
         300,
         300
       ],
-      "notes": "5 research queries focused on Synthetix AI's domain: agentic LLM evaluation, injury prediction, sports biomechanics, ACL prevention, and sports tech industry."
+      "notes": "Research queries focused on universal growth domains: cloud FinOps, LLM agent evaluations, and sustainable DTC commerce."
     },
     {
       "parameters": {
@@ -134,7 +134,7 @@
         1300,
         280
       ],
-      "notes": "Fast tier: evaluates Perplexity research and extracts structured signals with relevance scores, credibility, and evidence levels."
+      "notes": "Research queries focused on universal growth domains: cloud FinOps, LLM agent evaluations, and sustainable DTC commerce."
     },
     {
       "parameters": {
@@ -148,7 +148,7 @@
         1500,
         280
       ],
-      "notes": "Parses the Gemini JSON response into individual signal objects ready for Supabase insertion."
+      "notes": "Research queries focused on universal growth domains: cloud FinOps, LLM agent evaluations, and sustainable DTC commerce."
     },
     {
       "parameters": {

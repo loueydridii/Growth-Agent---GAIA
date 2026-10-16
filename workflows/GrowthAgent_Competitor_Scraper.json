@@ -1,5 +1,5 @@
 {
-  "name": "GrowthAgent \u2014 Competitor & TechCrunch Intelligence Scraper (Layer 2)",
+  "name": "GrowthAgent — Competitor & Tech Intelligence Scraper (Layer 2)",
   "nodes": [
     {
       "parameters": {
@@ -42,22 +42,22 @@
     },
     {
       "parameters": {
-        "url": "https://tech_news.ncbi.nlm.nih.gov/rss/search/1234/?limit=10&utm_campaign=tech_news-2&fc=20260101000000",
+        "url": "https://news.google.com/rss/search?q=kubernetes+cloud+infrastructure+OR+generative+ai+models&hl=en-US&gl=US&ceid=US:en",
         "options": {}
       },
-      "id": "rss-tech_news-gait",
-      "name": "RSS: TechCrunch Gait & RPM Research",
+      "id": "rss-tech-news",
+      "name": "RSS: TechCrunch & Cloud Architecture News",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1,
       "position": [
         520,
         140
       ],
-      "notes": "SETUP: Replace the URL with your saved TechCrunch RSS feed URL. Go to TechCrunch \u2192 search '(remote patient monitoring) OR (gait analysis wearable) OR (agentic LLM evaluation)' \u2192 click 'Create RSS' \u2192 copy the RSS feed URL here."
+      "notes": "SETUP: Replace the URL with your target industry RSS feed URL (e.g. Google News, TechCrunch, or Hacker News)."
     },
     {
       "parameters": {
-        "url": "https://news.google.com/rss/search?q=(%22Dynatrace%22+OR+%22New Relic%22+OR+%22Arize AI+Performance%22+OR+%22LangSmith+Sports%22+OR+%22Xsens%22)+AND+(%22motion+capture%22+OR+%22gait+analysis%22+OR+%22wearable%22)&hl=en-US&gl=US&ceid=US:en",
+        "url": "https://news.google.com/rss/search?q=datadog+OR+dynatrace+OR+langsmith+OR+arize+ai&hl=en-US&gl=US&ceid=US:en",
         "options": {}
       },
       "id": "rss-competitor-news",
@@ -68,7 +68,7 @@
         520,
         340
       ],
-      "notes": "Fetches Google News RSS for competitor brand mentions: Dynatrace, New Relic, Arize AI, LangSmith, Xsens."
+      "notes": "Fetches Google News RSS for competitor brand mentions: Datadog, Dynatrace, LangSmith, Arize AI, Kubecost."
     },
     {
       "parameters": {
@@ -112,7 +112,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": \"You are the GrowthAgent Competitive Intelligence Analyst (Layer 2). Analyze these recent feed items from TechCrunch and competitor news sources:\\n\\n\" + JSON.stringify($input.all().map(i => i.json)) + \"\\n\\nProduce a structured Competitive Intelligence Briefing in clean markdown with these sections:\\n1. **\ud83d\udd2c TechCrunch Research Highlights** \u2014 Summarize the most relevant clinical papers for CloudPulse (RPM, gait analysis, wearable insoles) and Synthetix AI (agentic LLM evaluation, sports science).\\n2. **\ud83c\udfe2 Competitor Activity** \u2014 What are Dynatrace, New Relic, Arize AI, LangSmith, Xsens doing? Any funding, product launches, partnerships, or hiring signals?\\n3. **\ud83d\udca1 Strategic Opportunities** \u2014 Based on this intelligence, what 2-3 actionable opportunities should CloudPulse and Synthetix AI capitalize on this week?\\n4. **\ud83d\udcca Trend Signals** \u2014 Any emerging themes or shifts in the market?\\n\\nKeep the briefing concise, executive-level, and formatted for Discord. Max 1500 characters.\" } ] } ], \"generationConfig\": { \"temperature\": 0.2, \"maxOutputTokens\": 700 } } }}",
+        "jsonBody": "={{ { \"contents\": [ { \"parts\": [ { \"text\": \"You are the GrowthAgent Competitive Intelligence Analyst (Layer 2). Analyze these recent feed items from tech news and competitor announcement feeds:\\n\\n\" + JSON.stringify($input.all().map(i => i.json)) + \"\\n\\nProduce a structured Competitive Intelligence Briefing in clean markdown with these sections:\\n1. **\ud83d\udd0d Industry Benchmarks & Technical Highlights** \u2014 Summarize key cloud and AI updates for CloudPulse (Kubernetes FinOps, eBPF telemetry) and Synthetix AI (agentic LLM evaluation benchmarks).\\n2. **\ud83c\udfe2 Competitor Activity** \u2014 What are Datadog, Dynatrace, LangSmith, Arize AI, and Kubecost doing? Any funding, feature releases, pricing shifts, or hiring signals?\\n3. **\ud83d\udca1 Strategic Opportunities** \u2014 Based on this intelligence, what 2-3 actionable opportunities should CloudPulse and Synthetix AI capitalize on this week?\\n4. **\ud83d\udcca Trend Signals** \u2014 Any emerging themes in cloud optimization or AI model reliability?\\n\\nKeep the briefing concise, executive-level, and formatted for Discord. Max 1500 characters.\" } ] } ], \"generationConfig\": { \"temperature\": 0.2, \"maxOutputTokens\": 700 } } }}",
         "options": {}
       },
       "id": "gemini-intel-summary",
@@ -186,7 +186,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"agent_name\": \"Competitor & TechCrunch Intelligence Scraper (Layer 2)\", \"task_input\": \"Weekly automated RSS feed scan: TechCrunch + Google News competitors\", \"task_output\": $('Gemini 2.5 Flash: Intelligence Briefing').item.json.candidates[0].content.parts[0].text, \"status\": \"approved\", \"product\": \"all\", \"approved_by\": \"auto\", \"execution_ms\": 4200 } }}",
+        "jsonBody": "={{ { \"agent_name\": \"Competitor & Tech Intelligence Scraper (Layer 2)\", \"task_input\": \"Weekly automated RSS feed scan: TechCrunch + Google News competitors\", \"task_output\": $('Gemini 2.5 Flash: Intelligence Briefing').item.json.candidates[0].content.parts[0].text, \"status\": \"approved\", \"product\": \"all\", \"approved_by\": \"auto\", \"execution_ms\": 4200 } }}",
         "options": {}
       },
       "id": "supabase-log-scraper",
@@ -255,7 +255,7 @@
       "main": [
         [
           {
-            "node": "RSS: TechCrunch Gait & RPM Research",
+            "node": "RSS: TechCrunch & Cloud Architecture News",
             "type": "main",
             "index": 0
           },
@@ -271,7 +271,7 @@
       "main": [
         [
           {
-            "node": "RSS: TechCrunch Gait & RPM Research",
+            "node": "RSS: TechCrunch & Cloud Architecture News",
             "type": "main",
             "index": 0
           },
@@ -283,7 +283,7 @@
         ]
       ]
     },
-    "RSS: TechCrunch Gait & RPM Research": {
+    "RSS: TechCrunch & Cloud Architecture News": {
       "main": [
         [
           {
@@ -358,7 +358,7 @@
       "main": [
         [
           {
-            "node": "RSS: TechCrunch Gait & RPM Research",
+            "node": "RSS: TechCrunch & Cloud Architecture News",
             "type": "main",
             "index": 0
           },

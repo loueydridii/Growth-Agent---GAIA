@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS GrowthAgent_signals (
     -- 'trend' | 'competitor' | 'research' | 'news'
     -- | 'geo_gap' | 'aeo_gap' | 'seo_anomaly'
   source              TEXT NOT NULL,
-    -- 'google_news' | 'tech_news' | 'linkedin' | 'perplexity'
+    -- 'google_news' | 'hacker_news' | 'linkedin' | 'perplexity'
     -- | 'search_console' | 'manual'
   source_url          TEXT,
   product             TEXT NOT NULL,
