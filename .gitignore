@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .env
+*.env.local
 
 # n8n specific
 .n8n/
@@ -18,5 +19,25 @@ Thumbs.db
 .agents/scratch/
 graphify-out/
 
-# Local Guides
+# Local Guides & Credentials (never commit)
 guide.md
+
+# Python cache — never commit
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.agents/**/__pycache__/
+backend/**/__pycache__/
+
+# Runtime logs
+decision_audit.log
+*.log
+
+# Frontend env overrides
+frontend/.env
+frontend/.env.local
+
+# Database files
+*.db
+*.sqlite

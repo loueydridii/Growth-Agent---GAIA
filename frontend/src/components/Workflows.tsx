@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { RefreshCw, Play, ExternalLink, Zap, ZapOff } from 'lucide-react';
 
 interface Workflow {
@@ -9,7 +9,7 @@ interface Workflow {
   tags: string[];
 }
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from '../config';
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -51,7 +51,7 @@ export function Workflows() {
             Live n8n workflow status.&nbsp;
             {source === 'mock' && (
               <span className="text-[var(--color-saffron-spark)]">
-                Showing mock data — add n8n API key in Settings to connect live.
+                Showing mock data â€” add n8n API key in Settings to connect live.
               </span>
             )}
             {source === 'live' && <span className="text-[var(--color-deep-verdant)]">Connected to n8n.</span>}
@@ -127,3 +127,4 @@ export function Workflows() {
     </div>
   );
 }
+

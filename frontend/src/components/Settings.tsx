@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Save, Check } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from '../config';
 
 interface StatusData {
   agent_name: string;
@@ -116,7 +116,7 @@ export function Settings({ onSave }: { onSave: () => void }) {
             <label className={labelClass}>API Key</label>
             <input className={inputClass} type="password" value={n8nKey} onChange={e => setN8nKey(e.target.value)} placeholder="Paste your n8n API key here" />
             <p className="text-[11px] text-[var(--color-ash-gray)] mt-2">
-              Generate in n8n → Settings → API. Required for live workflow data.
+              Generate in n8n â†’ Settings â†’ API. Required for live workflow data.
             </p>
           </div>
         </div>
@@ -132,3 +132,4 @@ export function Settings({ onSave }: { onSave: () => void }) {
     </div>
   );
 }
+

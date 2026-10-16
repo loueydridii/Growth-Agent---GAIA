@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { Chat } from './components/Chat';
@@ -9,7 +9,7 @@ import { Settings } from './components/Settings';
 
 type View = 'chat' | 'graph' | 'workflows' | 'approvals' | 'settings';
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from './config';
 
 function App() {
   const [activeView, setActiveView] = useState<View>('chat');
@@ -69,7 +69,7 @@ function App() {
         onConnectToggle={pingBackend}
       />
 
-      {/* Main content area — offset for sidebar (72px) and topbar (56px) */}
+      {/* Main content area â€” offset for sidebar (72px) and topbar (56px) */}
       <main className="ml-[72px] pt-14 h-screen overflow-hidden">
         <div className="h-full p-10 overflow-y-auto">
           {viewContent[activeView]}
@@ -146,3 +146,4 @@ function ParticleCanvas() {
 }
 
 export default App;
+

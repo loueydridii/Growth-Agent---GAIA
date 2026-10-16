@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, BrainCircuit } from 'lucide-react';
 
 interface ChatMessage {
@@ -9,7 +9,7 @@ interface ChatMessage {
   timestamp: string;
 }
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from '../config';
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -19,7 +19,7 @@ export function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'agent',
-      content: 'GAIA is online. I am operating in CEO Mode — ready to receive growth objectives. Try: "Grow pipeline by 30% in Q4" or "Scan for competitor opportunities".',
+      content: 'GAIA is online. I am operating in CEO Mode â€” ready to receive growth objectives. Try: "Grow pipeline by 30% in Q4" or "Scan for competitor opportunities".',
       timestamp: new Date().toISOString(),
     }
   ]);
@@ -125,7 +125,7 @@ export function Chat() {
                     onClick={() => toggleThought(i)}
                     className="text-[11px] uppercase tracking-widest text-[var(--color-electric-iris)]/60 hover:text-[var(--color-electric-iris)] transition-colors"
                   >
-                    {expandedThoughts.has(i) ? '▴ Hide reasoning' : '▾ Show reasoning'}
+                    {expandedThoughts.has(i) ? 'â–´ Hide reasoning' : 'â–¾ Show reasoning'}
                   </button>
                   {expandedThoughts.has(i) && (
                     <div className="mt-3 space-y-2 pl-3 border-l border-[var(--color-electric-iris)]/20">
@@ -181,9 +181,10 @@ export function Chat() {
           </button>
         </div>
         <p className="text-[11px] text-[var(--color-ash-gray)]/40 mt-3 ml-6">
-          Try: "Grow pipeline by 30%" · "Scan competitor landscape" · "Run an experiment on landing page"
+          Try: "Grow pipeline by 30%" Â· "Scan competitor landscape" Â· "Run an experiment on landing page"
         </p>
       </div>
     </div>
   );
 }
+

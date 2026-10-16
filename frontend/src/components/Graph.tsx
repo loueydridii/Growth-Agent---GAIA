@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+﻿import React, { useEffect, useState, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 interface MemoryNode {
@@ -22,7 +22,7 @@ interface GraphEdge {
   label: string;
 }
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from '../config';
 
 const NODE_COLORS = [
   'var(--color-electric-iris)',
@@ -156,7 +156,7 @@ export function Graph() {
             {rawNodes.map((n, i) => (
               <div key={i} className="text-[13px] font-[200] leading-relaxed text-[var(--color-silver-mist)] border-b border-white/5 pb-4">
                 <span className="text-white text-[12px]">{n.source}</span>
-                <span className="text-[var(--color-electric-iris)] mx-2 text-[11px]">→ [{n.relation}] →</span>
+                <span className="text-[var(--color-electric-iris)] mx-2 text-[11px]">â†’ [{n.relation}] â†’</span>
                 <span className="text-white text-[12px]">{n.target}</span>
               </div>
             ))}
@@ -166,3 +166,4 @@ export function Graph() {
     </div>
   );
 }
+

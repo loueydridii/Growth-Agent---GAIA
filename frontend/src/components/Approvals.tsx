@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Check, X, ShieldAlert, ShieldOff } from 'lucide-react';
 
 interface ApprovalAction {
@@ -9,7 +9,7 @@ interface ApprovalAction {
   created_at: string;
 }
 
-const API_BASE = 'http://localhost:8001';
+import { API_BASE } from '../config';
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -120,3 +120,4 @@ export function Approvals({ onCountChange }: { onCountChange: (n: number) => voi
     </div>
   );
 }
+
