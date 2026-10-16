@@ -32,12 +32,12 @@ CREATE TABLE IF NOT EXISTS GrowthAgent_memory (
 
 -- ============================================================
 -- TABLE: GrowthAgent_team_updates
--- Stores weekly product/business updates from TeamLead & team
+-- Stores weekly product/business updates from leadership & team
 -- Injected into Memory before each agent run.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS GrowthAgent_team_updates (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_name   TEXT NOT NULL,      -- e.g. 'TeamLead', 'GrowthAgenthal', 'intern'
+  member_name   TEXT NOT NULL,      -- e.g. 'TeamLead', 'ProductLead', 'intern'
   product       TEXT,               -- Which product the update is about
   update_text   TEXT NOT NULL,      -- The actual update content
   ingested      BOOLEAN DEFAULT FALSE, -- Whether it's been embedded into GrowthAgent_memory

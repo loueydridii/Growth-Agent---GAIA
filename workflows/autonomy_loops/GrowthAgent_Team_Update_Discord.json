@@ -45,7 +45,7 @@
     {
       "parameters": {
         "authentication": "webhook",
-        "content": "\ud83d\udcdd **To submit your update directly, use this link:**\nhttps://YOUR_N8N_INSTANCE/webhook-test/GrowthAgent-jr-team-update\n\nOr just reply in this thread \u2014 TeamLead will manually log updates via the form until the Discord bot is live.",
+        "content": "\ud83d\udcdd **To submit your update directly, use this link:**\nhttps://YOUR_N8N_INSTANCE/webhook-test/GrowthAgent-jr-team-update\n\nOr just reply in this thread \u2014 the team will manually log updates via the form until the Discord bot is live.",
         "options": {}
       },
       "id": "node-discord-form-link",
